@@ -1,0 +1,51 @@
+name = "ComradeBase"
+uuid = "6d8c423b-a35f-4ef1-850c-862fe21f82c4"
+authors = ["Paul Tiede <ptiede91@gmail.com> and contributors"]
+version = "0.10.0"
+
+[deps]
+Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
+DimensionalData = "0703355e-b756-11e9-17c0-8b28908087d0"
+DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
+EnzymeCore = "f151be2c-9106-41f4-ab19-57ee4f262869"
+PolarizedTypes = "d3c5d4cd-a8ee-40d6-aac7-e34df5a20044"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
+FieldDimArrays = "8162b97e-af21-446d-9d6e-57a067fd3c83"
+
+[weakdeps]
+Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
+Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
+KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
+OhMyThreads = "67456a42-1dca-4109-a031-0a68de7e3ad5"
+Polyester = "f517fe37-dbe3-4b94-8317-1923a5111588"
+Reactant = "3c362404-f566-11ee-1572-e11a4b42c853"
+
+[extensions]
+ComradeBaseAdaptExt = "Adapt"
+ComradeBaseEnzymeExt = "Enzyme"
+ComradeBaseKernelAbstractionsExt = "KernelAbstractions"
+ComradeBaseOhMyThreadsExt = "OhMyThreads"
+ComradeBasePolyesterExt = "Polyester"
+ComradeBaseReactantExt = "Reactant"
+
+[compat]
+Accessors = "0.1"
+Adapt = "4"
+DimensionalData = "0.30"
+DocStringExtensions = "0.8, 0.9"
+Enzyme = "0.12, 0.13"
+EnzymeCore = "0.7, 0.8"
+KernelAbstractions = "0.9"
+OhMyThreads = "0.5, 0.6, 0.7, 0.8"
+PolarizedTypes = "0.1"
+Polyester = "0.7"
+PrecompileTools = "1"
+Reactant = "0.2.295"
+Reexport = "1"
+StaticArrays = "1"
+StructArrays = "0.6, 0.7"
+FieldDimArrays = "0.1"
+julia = "1.10"

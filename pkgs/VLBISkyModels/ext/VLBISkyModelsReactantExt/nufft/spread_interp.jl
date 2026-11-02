@@ -1,0 +1,484 @@
+#==============================================================================
+Shared spread/interpolation machinery for the type-1 and type-2 executes.
+
+Everything here is regular Julia array code (broadcasts, getindex/setindex!,
+reductions) that Reactant traces to StableHLO. The per-point stencil is the
+same as FINUFFT's: each nonuniform point touches a w^D block of the
+oversampled grid, with separable ES-kernel weights evaluated by Horner
+polynomials (see kernel.jl).
+
+Index convention: `base` is the 0-based grid coordinate of the leftmost
+stencil cell per dim (may be negative / past the end before wrapping);
+`frac ∈ [0, 1)` is the offset used for the Horner evaluation. Both are
+stored in original point order by setpts.jl; the spread additionally applies
+the bin-sort permutation chunk-wise (see `_chunk_stencil`).
+==============================================================================#
+
+# Horner weights for one dim and a set of points.
+# `coefs :: (w, deg+1)` host matrix, `frac` traced array of offsets.
+# Returns (size(frac)..., w): weights[J, k] = p_k(2*frac[J] - 1).
+function _horner_weights(coefs::AbstractMatrix, frac::AbstractArray)
+    t = reshape(2 .* frac .- 1, 1, size(frac)...)
+    n = size(coefs, 2)
+    # Seeding with the leading coefficient keeps the degree-0 case valid. Coefficients
+    # broadcast as vectors: singleton dims would line up with split dims of `frac`
+    # (EnzymeAD/Reactant.jl#3527).
+    acc = one.(t) .* coefs[:, n]
+    for p in (n - 1):-1:1
+        acc = acc .* t .+ coefs[:, p]
+    end
+    return permutedims(acc, (ntuple(i -> i + 1, ndims(frac))..., 1))
+end
+
+# Wrapped 0-based grid coordinates of the stencil cells for one dim:
+# (cs, w), entry [j, k] = mod(base[j] + k - 1, ngrid_d).
+function _grid_offsets(base::AbstractVector, ngrid_d::Int, w::Int)
+    return mod.(base .+ transpose(0:(w - 1)), ngrid_d)
+end
+
+# Combine per-dim wrapped offsets into 1-based linear indices over the
+# flattened spatial grid. Shapes: (cs, w), (cs, w, w), (cs, w, w, w).
+function _linear_indices(offs::NTuple{1, AbstractMatrix}, ::NTuple{1, Int})
+    return offs[1] .+ 1
+end
+
+function _linear_indices(offs::NTuple{2, AbstractMatrix}, ngrid::NTuple{2, Int})
+    cs, w = size(offs[1])
+    return reshape(offs[1], cs, w, 1) .+
+        ngrid[1] .* reshape(offs[2], cs, 1, w) .+ 1
+end
+
+function _linear_indices(offs::NTuple{3, AbstractMatrix}, ngrid::NTuple{3, Int})
+    cs, w = size(offs[1])
+    return reshape(offs[1], cs, w, 1, 1) .+
+        ngrid[1] .* reshape(offs[2], cs, 1, w, 1) .+
+        (ngrid[1] * ngrid[2]) .* reshape(offs[3], cs, 1, 1, w) .+ 1
+end
+
+# Separable tensor product of per-dim weights, matching the index shapes
+# above: (cs, w), (cs, w, w), (cs, w, w, w).
+_weight_product(wpd::NTuple{1, AbstractMatrix}) = wpd[1]
+
+function _weight_product(wpd::NTuple{2, AbstractMatrix})
+    cs, w = size(wpd[1])
+    return reshape(wpd[1], cs, w, 1) .* reshape(wpd[2], cs, 1, w)
+end
+
+function _weight_product(wpd::NTuple{3, AbstractMatrix})
+    cs, w = size(wpd[1])
+    return reshape(wpd[1], cs, w, 1, 1) .*
+        reshape(wpd[2], cs, 1, w, 1) .*
+        reshape(wpd[3], cs, 1, 1, w)
+end
+
+# Contract gathered stencil values against the per-dim weights, last dim
+# first, so the intermediates shrink: (cs, w, .., w) -> (cs,).
+function _contract_weights(vals, wpd::NTuple{1, AbstractMatrix})
+    return vec(sum(vals .* wpd[1]; dims = 2))
+end
+
+function _contract_weights(vals, wpd::NTuple{2, AbstractMatrix})
+    cs, w = size(wpd[1])
+    t2 = dropdims(sum(vals .* reshape(wpd[2], cs, 1, w); dims = 3); dims = 3)
+    return vec(sum(t2 .* wpd[1]; dims = 2))
+end
+
+function _contract_weights(vals, wpd::NTuple{3, AbstractMatrix})
+    cs, w = size(wpd[1])
+    t3 = dropdims(sum(vals .* reshape(wpd[3], cs, 1, 1, w); dims = 4); dims = 4)
+    t2 = dropdims(sum(t3 .* reshape(wpd[2], cs, 1, w); dims = 3); dims = 3)
+    return vec(sum(t2 .* wpd[1]; dims = 2))
+end
+
+# Per-chunk stencil weights and linear indices, shared by spread and interp.
+# `idx` selects the chunk's points: a plain `UnitRange` for original-order
+# access (interp) or a traced `perm` slice for bin-sorted access (spread).
+function _chunk_stencil(
+        prep::NUFFTSetPts{T, D}, idx, coefs::AbstractMatrix,
+    ) where {T, D}
+    plan = prep.plan
+    w = plan.nspread
+    base_c = ntuple(d -> prep.base[d][idx], Val(D))
+    frac_c = ntuple(d -> prep.frac[d][idx], Val(D))
+    wpd = ntuple(d -> _horner_weights(coefs, frac_c[d]), Val(D))
+    offs = ntuple(d -> _grid_offsets(base_c[d], plan.ngrid[d], w), Val(D))
+    lin = _linear_indices(offs, plan.ngrid)
+    return wpd, lin
+end
+
+# Static chunk ranges covering 1:M; the last chunk may be ragged.
+function _chunk_ranges(M::Int, chunk_size::Int)
+    cs = max(1, min(chunk_size, M))
+    return [lo:min(lo + cs - 1, M) for lo in 1:cs:M]
+end
+
+# Plan the type-2 interp chunking: how many chunks, the (uniform) chunk length
+# `cs`, and the padded length `Mpad = cs * nchunks` that the `@trace for` loop
+# iterates over. Returns `(cs, nchunks, Mpad)`.
+#
+# `nchunks` is fixed by `chunk_size` (so peak memory is unchanged), but the
+# points are then spread *evenly* across those chunks via `cs = cld(M, nchunks)`
+# rather than packing `chunk_size` into each and padding the remainder. This
+# keeps the padding `Mpad - M < nchunks` (a handful of points) instead of up to
+# a near-full chunk — e.g. M=2e5, chunk_size=131072 gives 2×1e5=2e5 (no
+# padding) instead of 2×131072=262144 (62144 wasted points).
+function _chunk_plan(M::Int, chunk_size::Int; max_chunks::Int = typemax(Int))
+    ce = max(1, min(chunk_size, M))
+    nchunks = min(cld(M, ce), max_chunks)
+    cs = cld(M, nchunks)
+    return cs, nchunks, cs * nchunks
+end
+
+# Pad a (traced) length-M vector up to length `Mpad` with `fillval`. Used to
+# make every chunk exactly `cs` long so the type-2 interp chunk loop can be a
+# `Reactant.@trace for` (uniform static shapes) instead of an unrolled loop.
+function _pad_to(v::AbstractVector, Mpad::Int, fillval)
+    length(v) == Mpad && return v
+    tail = fill!(similar(v, Mpad - length(v)), fillval)
+    return vcat(v, tail)
+end
+
+#==============================================================================
+Spread (type-1 kernel): scatter-add each point's weighted stencil into the
+oversampled grid.
+
+The traced path emits a single parallel `stablehlo.scatter` whose
+update_computation is `+`. StableHLO combines duplicate indices through the
+update computation, so overlapping stencils accumulate correctly with no
+serialization. Regular Julia array semantics cannot express this
+(`fw[lin] .+= upd` drops duplicate-index contributions), which is why the op
+is built via `Reactant.Ops.scatter` directly. On GPU the scatter lowers to
+atomics, so float sums are reordered run-to-run (same caveat as cuFINUFFT's
+atomic spread).
+==============================================================================#
+function _scatter_add!(
+        fw_vec::Reactant.AnyTracedRArray{CT, 1}, lin::AbstractVector, upd::AbstractVector,
+    ) where {CT}
+    dest = Reactant.TracedUtils.materialize_traced_array(fw_vec)
+    idx = Reactant.promote_to(
+        Reactant.TracedRArray{Int64, 2}, reshape(lin, length(lin), 1)
+    )
+    ups = Reactant.promote_to(Reactant.TracedRArray{CT, 1}, upd)
+    return Reactant.Ops.scatter(
+        +, [dest], idx, [ups];
+        update_window_dims = Int64[],
+        inserted_window_dims = Int64[1],
+        input_batching_dims = Int64[],
+        scatter_indices_batching_dims = Int64[],
+        scatter_dims_to_operand_dims = Int64[1],
+        index_vector_dim = Int64(2),
+    )[1]
+end
+
+# Non-traced fallback (plain-array debugging use).
+function _scatter_add!(fw_vec::AbstractVector, lin::AbstractVector, upd::AbstractVector)
+    @allowscalar for n in 1:length(lin)
+        fw_vec[lin[n]] += upd[n]
+    end
+    return fw_vec
+end
+
+# Spread all points of all transforms into a fresh oversampled grid.
+# `cmat :: (M, ntrans)` complex strengths in original (unsorted) point order.
+# Returns `fw :: (ngrid..., ntrans)` complex.
+#
+# Real and imaginary parts go in separate real buffers: without a 128-bit atomic add,
+# a complex scatter-add is far slower on GPUs (EnzymeAD/Reactant.jl#3563).
+function _spread(prep::NUFFTSetPts{T, D}, cmat::AbstractMatrix, ntrans::Int) where {T, D}
+    plan = prep.plan
+    nflat = prod(plan.ngrid)
+
+    fw_re = similar(cmat, T, nflat * ntrans)
+    fw_im = similar(cmat, T, nflat * ntrans)
+    fill!(fw_re, zero(T))
+    fill!(fw_im, zero(T))
+
+    coefs = plan.horner_coefs
+    for r in _chunk_ranges(prep.M, plan.chunk_size)
+        perm_c = prep.perm[r]                              # bin-sorted point ids
+        wpd, lin = _chunk_stencil(prep, perm_c, coefs)
+        wprod = _weight_product(wpd)                       # (cs, w^D) real
+        cc = cmat[perm_c, :]                               # (cs, ntrans) complex
+        for t in 1:ntrans
+            upd_re = wprod .* real.(cc[:, t])              # (cs, w^D)
+            upd_im = wprod .* imag.(cc[:, t])
+            lin_t = vec(lin .+ (t - 1) * nflat)
+            fw_re = _scatter_add!(fw_re, lin_t, vec(upd_re))
+            fw_im = _scatter_add!(fw_im, lin_t, vec(upd_im))
+        end
+    end
+
+    return reshape(complex.(fw_re, fw_im), (plan.ngrid..., ntrans))
+end
+
+#==============================================================================
+Interpolate (type-2 kernel): gather each point's stencil from the (already
+FFT'd and deconvolved) oversampled grid and contract against the weights.
+
+The chunk loop is a `Reactant.@trace for` (one `stablehlo.while`), so the
+StableHLO graph stays O(1) in M — a plain Julia `for` over the chunks instead
+unrolls one gather+contract subgraph per chunk (≈ M / chunk_size of them),
+making compile time grow linearly with M.
+
+Points are read in *original* order (no bin-sort indirection), so chunk
+results drop straight into their output rows with no final permutation
+gather. The per-chunk stencil gather reads from the FFT output (`fw_vec`)
+directly; the output buffer `out` is written via `setindex!`
+(dynamic_update_slice).
+==============================================================================#
+
+# One chunk's interpolation: gather column `i` of the (cs, nchunks)-reshaped
+# stencil data and contract → (cs, ntrans). Kept as its own function so its
+# static parameter `D` is local here, not in the `@trace for` body (the trace
+# macro forbids enclosing static parameters from appearing as loop locals).
+function _interp_chunk(
+        i, base_mat::NTuple{D}, frac_mat::NTuple{D}, coefs,
+        ngrid::NTuple{D, Int}, w::Int, nflat::Int, fw_vec, ntrans::Int,
+    ) where {D}
+    base_c = ntuple(d -> base_mat[d][:, i], Val(D))         # (cs,) each
+    frac_c = ntuple(d -> frac_mat[d][:, i], Val(D))         # (cs,) each
+    wpd = ntuple(d -> _horner_weights(coefs, frac_c[d]), Val(D))
+    offs = ntuple(d -> _grid_offsets(base_c[d], ngrid[d], w), Val(D))
+    lin = _linear_indices(offs, ngrid)                      # (cs, w^D)
+    cols = [_contract_weights(fw_vec[lin .+ (t - 1) * nflat], wpd) for t in 1:ntrans]
+    return ntrans == 1 ? reshape(cols[1], :, 1) : reduce(hcat, cols)  # (cs, ntrans)
+end
+
+# Reverse-mode memory guard for the `@trace for` chunk loop. Under Enzyme the
+# while loop is store-all: every chunk's stencil intermediates (Horner
+# weights, linear indices, gathered values) are cached for the reverse sweep,
+# and the raising passes batch those caches across chunks into full-size
+# (M, w^D) buffers — so reverse-pass memory is O(M * w^D) *regardless* of
+# chunking, while the primal stays chunk-bounded. That is the fast path while
+# the caches are small (the raised batched gather + dot_generals beat every
+# alternative measured: reverse 1.5 ms vs 3.6 ms for the wide gather at
+# M = 1e5, w = 7) and a GPU OOM once they are not (XLA autotuner
+# RESOURCE_EXHAUSTED at M = 1e6, w = 10, ComplexF64 on a busy 24 GB card;
+# 4.7 GB peak on an idle one).
+#
+# Above the threshold, work goes to `_interp_wide` instead: one batched
+# multi-dim gather over a circular-padded grid plus a separable weight
+# contraction, straight-line code whose adjoint scatter XLA fuses with no
+# caches. This is the pre-#139 interp kernel, which measured best at
+# large M in both directions (M = 1e6, w = 10: forward 5.5 ms, reverse
+# 16.7 ms, 1.9 GB peak — vs 40+ ms / 4+ GB for every loop-based variant).
+#
+# The same threshold routes the *primal* (2D only): at M = 1e6, N = 1024,
+# w = 7 on an RTX 3090 Ti the chunk-loop forward measured 16.1 ms while a
+# full wide-path VJP (forward + reverse) measured 11.1 ms; below the
+# threshold (M = 1e5) loop and wide tie at ~1.2 ms forward / 2.5 ms VJP.
+const INTERP_WIDE_WS_LIMIT = 128 * 2^20
+# D != 2 fallback only: cap on unrolled chunks so graph size stays bounded
+# (~0.35 s compile / ~25 MB host RAM per chunk measured).
+const AD_UNROLL_MAX_CHUNKS = 32
+
+function _interp(prep::NUFFTSetPts{T, ND}, fw::AbstractArray, ntrans::Int) where {T, ND}
+    plan = prep.plan
+    CT = complex(T)
+    w = plan.nspread
+    ngrid = plan.ngrid
+    nflat = prod(ngrid)
+    fw_vec = vec(fw)
+    coefs = plan.horner_coefs
+    M = prep.M
+
+    # Above the workspace threshold the wide kernel wins in both directions
+    # (see the guard comment above), so route the 2D primal there too.
+    # `EnzymeCore.within_autodiff()` is overlaid by Reactant to return `true`
+    # while tracing under `Enzyme.autodiff`, and is a plain Bool at trace
+    # time; under AD the fallback is mandatory for every D (the loop's
+    # store-all caches are what blow up), while the D != 2 primal keeps the
+    # chunk loop (no wide kernel implemented there, and the unrolled
+    # fallback's chunk cap does not bound primal memory any better).
+    ws = M * w^ND * sizeof(CT) * ntrans
+    if ws > INTERP_WIDE_WS_LIMIT && (EnzymeCore.within_autodiff() || ND == 2)
+        return _interp_ad_fallback(prep, fw, ntrans)
+    end
+
+    cs, nchunks, Mpad = _chunk_plan(M, plan.chunk_size)
+
+    # Pad per-dim base/frac to Mpad and view as (cs, nchunks) so chunk `i` is a
+    # static-shape column slice. Padded points (rows M+1:Mpad) use base=0,
+    # frac=0 — a valid in-bounds (wrapped) stencil — and are dropped at the end.
+    base_mat = ntuple(d -> reshape(_pad_to(prep.base[d], Mpad, 0), cs, nchunks), Val(ND))
+    frac_mat = ntuple(d -> reshape(_pad_to(prep.frac[d], Mpad, zero(T)), cs, nchunks), Val(ND))
+
+    out = similar(fw_vec, CT, (cs, nchunks, ntrans))
+    fill!(out, zero(CT))
+
+    # Single MLIR while loop (one subgraph total) instead of one unrolled
+    # subgraph per chunk: keeps the StableHLO graph O(1) in M. The loop body
+    # references only runtime values (no static type parameters).
+    Reactant.@trace track_numbers = false for i in 1:nchunks
+        out[:, i, :] = _interp_chunk(i, base_mat, frac_mat, coefs, ngrid, w, nflat, fw_vec, ntrans)
+    end
+
+    c = reshape(out, Mpad, ntrans)
+    return M == Mpad ? c : c[1:M, :]
+end
+
+# Circular-pad fw on each spatial axis by (w-1) cells so a single batched
+# gather with slice_size [w, ..., w, ntrans] starting at the wrapped stencil
+# base covers any stencil — including those that wrap around. Padding cells
+# alias the beginning of each axis. Trailing ntrans axis is not padded.
+@inline function _circular_pad_spatial(fw, w::Int, ::Val{1})
+    return vcat(fw, fw[1:(w - 1), :])
+end
+@inline function _circular_pad_spatial(fw, w::Int, ::Val{2})
+    a = cat(fw, fw[:, 1:(w - 1), :]; dims = 2)
+    return cat(a, a[1:(w - 1), :, :]; dims = 1)
+end
+@inline function _circular_pad_spatial(fw, w::Int, ::Val{3})
+    a = cat(fw, fw[:, :, 1:(w - 1), :]; dims = 3)
+    b = cat(a, a[:, 1:(w - 1), :, :]; dims = 2)
+    return cat(b, b[1:(w - 1), :, :, :]; dims = 1)
+end
+
+# Wide-stencil interp (the pre-#139 kernel): read every point's full (w, w)
+# stencil in one batched gather from the circular-padded grid, then contract
+# against the separable per-dim weights. Points are read in original order,
+# so no output permutation is needed.
+#
+# The grid is gathered as stacked real and imaginary planes, a real (N1, N2, 2ntrans)
+# tensor: the adjoint of the gather is a scatter-add, and XLA has no 128-bit atomic add, so
+# two real scatters are much faster on GPU than one complex scatter (as in `_spread`).
+# Used for 2D work in both directions above INTERP_WIDE_WS_LIMIT (see above).
+function _interp_wide(prep::NUFFTSetPts{T, 2}, fw::AbstractArray, ntrans::Int) where {T}
+    plan = prep.plan
+    w = plan.nspread
+    N1, N2 = plan.ngrid
+    M = prep.M
+    coefs = plan.horner_coefs
+
+    w1 = _horner_weights(coefs, prep.frac[1])              # (M, w)
+    w2 = _horner_weights(coefs, prep.frac[2])              # (M, w)
+    start1 = mod.(prep.base[1], N1) .+ 1                   # (M,) 1-based wrapped
+    start2 = mod.(prep.base[2], N2) .+ 1
+
+    fw3 = reshape(fw, N1, N2, ntrans)
+    fw_ri = cat(real.(fw3), imag.(fw3); dims = 3)          # (N1, N2, 2ntrans) real
+    fw_padded = _circular_pad_spatial(fw_ri, w, Val(2))    # (N1+w-1, N2+w-1, 2ntrans)
+    start_idx = hcat(
+        reshape(start1, M, 1),
+        reshape(start2, M, 1),
+        reshape(ones(Int, M), M, 1),
+    )                                                      # (M, 3)
+
+    vals = Reactant.Ops.@opcall gather(
+        fw_padded,
+        Reactant.promote_to(Reactant.TracedRArray{Int, 2}, start_idx);
+        offset_dims = Int64[2, 3, 4],
+        collapsed_slice_dims = Int64[],
+        operand_batching_dims = Int64[],
+        start_indices_batching_dims = Int64[],
+        start_index_map = Int64[1, 2, 3],
+        index_vector_dim = Int64(2),
+        slice_sizes = Int64[w, w, 2 * ntrans],
+    )                                                      # (M, w, w, 2ntrans)
+
+    # Two-step sum-product over the w^2 stencil, contracting the trailing
+    # stencil dim first so the intermediate shrinks.
+    tmp = dropdims(sum(reshape(w2, M, 1, w, 1) .* vals; dims = 3); dims = 3)
+    ri = dropdims(sum(reshape(w1, M, w, 1) .* tmp; dims = 2); dims = 2)    # (M, 2ntrans)
+    return complex.(ri[:, 1:ntrans], ri[:, (ntrans + 1):(2 * ntrans)])
+end
+
+_interp_ad_fallback(prep::NUFFTSetPts{T, 2}, fw::AbstractArray, ntrans::Int) where {T} =
+    _interp_wide(prep, fw, ntrans)
+
+# Interpolation from a stack of grids `fw :: (N1, N2, planedims...)` in which each point
+# reads only its own plane (see `execute_type2`). Returns (M,).
+function _interp_plane(prep::NUFFTSetPts{T, 2}, fw::AbstractArray, plane::AbstractArray, batched::Tuple) where {T}
+    N1, N2 = prep.plan.ngrid
+    pshape = size(plane)[1:(end - 1)]
+    start1 = reshape(mod.(prep.base[1], N1) .+ 1, pshape..., 1)
+    start2 = reshape(mod.(prep.base[2], N2) .+ 1, pshape..., 1)
+    start = cat(start1, start2, ones(Int, pshape..., 1), plane; dims = length(pshape) + 1)
+    frac = map(f -> reshape(f, pshape), prep.frac)
+    ri = reshape(_interp_blocks(prep.plan, fw, start, frac, batched), prep.M, 2)
+    return complex.(ri[:, 1], ri[:, 2])
+end
+
+# The wide kernel over a stack of grids `fw :: (N1, N2, planedims...)`. Points are laid out
+# as `size(start)[1:end-1]`, and `start[J, :]` holds point `J`'s 1-based window corner, a 1,
+# and its index along each plane dim. Point dim `i + 1` is a gather batching dim: plane dim
+# `batched[i]` is split into `size(start, i + 1)` equal blocks, points in slice `b` read only
+# block `b`, and their index along that plane dim counts within the block. A stack sharded
+# along its plane dims is thus read where it lives when the points are grouped the same way.
+# Real and imaginary parts sit in their own dim, so each point reads a `(w, w, 2)` slice.
+# Returns the real and imaginary parts, `(size(start)[1:end-1]..., 2)`.
+function _interp_blocks(plan::NUFFTPlan{T, 2}, fw::AbstractArray, start::AbstractArray, frac::NTuple{2, AbstractArray}, batched::Tuple) where {T}
+    w = plan.nspread
+    N1, N2 = plan.ngrid
+    K = ndims(fw) - 2
+    pshape = size(start)[1:(end - 1)]
+    nb = length(pshape)
+    @assert nb == length(batched) + 1 && size(start, nb + 1) == 3 + K "start must be (points..., 3 + K)"
+
+    fw1 = reshape(fw, N1, N2, 1, size(fw)[3:end]...)
+    fw_ri = cat(real.(fw1), imag.(fw1); dims = 3)          # (N1, N2, 2, planedims...)
+    rest = ntuple(_ -> Colon(), K + 1)
+    padded = cat(fw_ri, fw_ri[:, 1:(w - 1), rest...]; dims = 2)
+    padded = cat(padded, padded[1:(w - 1), :, rest...]; dims = 1)
+
+    shape = collect(Int64, size(padded)[1:3])
+    within = Int64[]
+    blockdims = zeros(Int64, length(batched))
+    for k in 1:K
+        n = size(fw, 2 + k)
+        i = findfirst(==(k), batched)
+        nblk = i === nothing ? 1 : pshape[i + 1]
+        n % nblk == 0 || throw(DimensionMismatch("plane dim $k of length $n does not split into $nblk equal blocks"))
+        push!(shape, n ÷ nblk)
+        push!(within, length(shape))
+        if i !== nothing
+            push!(shape, nblk)
+            blockdims[i] = length(shape)
+        end
+    end
+    stack = isempty(batched) ? padded : Reactant.Ops.reshape(padded, shape...)
+
+    vals = Reactant.Ops.@opcall gather(
+        stack,
+        Reactant.promote_to(Reactant.TracedRArray{Int, nb + 1}, start);
+        offset_dims = collect(Int64, (nb + 1):(nb + 3)),
+        collapsed_slice_dims = within,
+        operand_batching_dims = blockdims,
+        start_indices_batching_dims = collect(Int64, 2:nb),
+        start_index_map = Int64[1, 2, 3, within...],
+        index_vector_dim = Int64(nb + 1),
+        slice_sizes = Int64[w, w, 2, ones(Int64, length(shape) - 3)...],
+    )                                                      # (pshape..., w, w, 2)
+
+    coefs = plan.horner_coefs
+    w1 = _horner_weights(coefs, frac[1])                   # (pshape..., w)
+    w2 = _horner_weights(coefs, frac[2])
+    tmp = dropdims(sum(reshape(w2, pshape..., 1, w, 1) .* vals; dims = nb + 2); dims = nb + 2)
+    return dropdims(sum(reshape(w1, pshape..., w, 1) .* tmp; dims = nb + 1); dims = nb + 1)
+end
+
+# D != 2: trace-time-unrolled chunk loop (capped). Each chunk is its own
+# gather+contract subgraph that XLA fuses without Enzyme loop caches.
+function _interp_ad_fallback(prep::NUFFTSetPts{T, ND}, fw::AbstractArray, ntrans::Int) where {T, ND}
+    plan = prep.plan
+    CT = complex(T)
+    w = plan.nspread
+    ngrid = plan.ngrid
+    nflat = prod(ngrid)
+    fw_vec = vec(fw)
+    coefs = plan.horner_coefs
+    M = prep.M
+
+    cs, nchunks, Mpad = _chunk_plan(M, plan.chunk_size; max_chunks = AD_UNROLL_MAX_CHUNKS)
+    base_mat = ntuple(d -> reshape(_pad_to(prep.base[d], Mpad, 0), cs, nchunks), Val(ND))
+    frac_mat = ntuple(d -> reshape(_pad_to(prep.frac[d], Mpad, zero(T)), cs, nchunks), Val(ND))
+
+    out = similar(fw_vec, CT, (cs, nchunks, ntrans))
+    fill!(out, zero(CT))
+    for i in 1:nchunks
+        out[:, i, :] = _interp_chunk(i, base_mat, frac_mat, coefs, ngrid, w, nflat, fw_vec, ntrans)
+    end
+
+    c = reshape(out, Mpad, ntrans)
+    return M == Mpad ? c : c[1:M, :]
+end

@@ -1,0 +1,63 @@
+module VLBISkyModelsReactantExt
+
+using VLBISkyModels
+using AbstractFFTs
+using ComradeBase
+using Reactant
+using NFFT
+using NFFT: AbstractNFFTs
+using VLBISkyModels: ReactantNUFFTAlg
+using LinearAlgebra
+import EnzymeCore
+
+include("nufft/ReactantNUFFT.jl")
+
+function VLBISkyModels.applyphases!(vis::Reactant.AbstractArray, phases::Reactant.AnyTracedRArray)
+    vout = vis .* phases
+    return copyto!(vis, vout)
+end
+
+function VLBISkyModels._resample_window!(
+        img::IntensityMap{<:Reactant.TracedRNumber}, src::IntensityMap, kernel
+    )
+    throw(
+        ArgumentError(
+            "traced image resampling needs a `Pulse` kernel and image and output grids with one position angle; got $(nameof(typeof(kernel)))"
+        )
+    )
+end
+
+function VLBISkyModels.PolExp2Map!(
+        a::Reactant.AnyTracedRArray,
+        b::Reactant.AnyTracedRArray,
+        c::Reactant.AnyTracedRArray,
+        d::Reactant.AnyTracedRArray,
+        grid::ComradeBase.AbstractRectiGrid
+    )
+
+    # Broadcasts: the generic loop traces to a `while` loop (EnzymeAD/Reactant.jl#3389).
+    p = sqrt.(b .^ 2 .+ c .^ 2 .+ d .^ 2)
+    pimgI = exp.(a) .* cosh.(p)
+    tmp = exp.(a) .* sinh.(p) ./ p
+    pimgQ = tmp .* b
+    pimgU = tmp .* c
+    pimgV = tmp .* d
+
+    copyto!(a, pimgI)
+    copyto!(b, pimgQ)
+    copyto!(c, pimgU)
+    copyto!(d, pimgV)
+
+    return stokes_intensitymap(a, b, c, d, grid)
+end
+
+
+# function VLBISkyModels.FourierDualDomain(
+#         imgdomain::ComradeBase.AbstractRectiGrid, visdomain::ComradeBase.UnstructuredDomain,
+#         algorithm::ReactantNUFFTAlg
+#     )
+#     plan_forward, plan_reverse = VLBISkyModels.create_plans(algorithm, imgdomain, visdomain)
+#     return FourierDualDomain(imgdomain, Reactant.to_rarray(visdomain), algorithm, plan_forward, plan_reverse)
+# end
+
+end

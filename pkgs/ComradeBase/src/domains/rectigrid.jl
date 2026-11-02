@@ -1,0 +1,213 @@
+export RectiGrid, refinespatial, gridproduct, ⊗
+
+"""
+    AbstractRectiGrid{D, E}
+
+A rectilinear grid whose first two dims are spatial (`X`, `Y` in the image plane or `U`, `V`
+in the visibility plane), followed by any non-spatial dims.
+"""
+abstract type AbstractRectiGrid{D, E} <: AbstractSingleDomain{D, E} end
+
+function fieldofview(dims::AbstractRectiGrid)
+    (; X, Y) = dims
+    dx = step(DD.dims(dims, DD.X))
+    dy = step(DD.dims(dims, DD.Y))
+    return (X = abs(last(X) - first(X)) + dx, Y = abs(last(Y) - first(Y)) + dy)
+end
+
+@inline posang(d::AbstractRectiGrid) = getfield(d, :posang)
+
+"""
+    pixelsizes(img::IntensityMap)
+    pixelsizes(img::AbstractRectiGrid)
+
+Returns a named tuple with the spatial pixel sizes of the image.
+"""
+function pixelsizes(keys::AbstractRectiGrid)
+    return (X = step(DD.dims(keys, DD.X)), Y = step(DD.dims(keys, DD.Y)))
+end
+
+
+struct RectiGrid{D, E, Hd <: AMeta, P} <: AbstractRectiGrid{D, E}
+    dims::D
+    executor::E
+    header::Hd
+    posang::P
+    @inline function RectiGrid(
+            dims::Tuple; executor = Serial(),
+            header::AMeta = NoHeader(), posang = zero(eltype(first(dims)))
+        )
+        df = DD.format(dims)
+        return new{typeof(df), typeof(executor), typeof(header), typeof(posang)}(
+            df, executor,
+            header,
+            posang
+        )
+    end
+end
+
+EnzymeRules.inactive_type(::Type{<:RectiGrid}) = true
+
+function rotmat(d::RectiGrid)
+    s, c = sincos(posang(d))
+    r = (c, -s, s, c)
+    m = SMatrix{2, 2, typeof(s), 4}(r)
+    return m
+end
+
+function domainpoints(d::RectiGrid{D, Hd}) where {D, Hd}
+    g = map(basedim, dims(d))
+    rot = rotmat(d)
+    N = keys(d)
+    return LazyGrid(NamedTuple{N}(g), rot)
+end
+
+@inline Base.keys(g::RectiGrid) = map(name, dims(g))
+
+@inline RectiGrid(g::RectiGrid) = g
+
+function Base.show(io::IO, mime::MIME"text/plain", x::RectiGrid{D, E}) where {D, E}
+    println(io, "RectiGrid(")
+    println(io, "executor: $(executor(x))")
+    println(io, "Dimensions: ")
+    show(io, mime, dims(x))
+    return print(io, "\n)")
+end
+
+Base.propertynames(d::RectiGrid) = keys(d)
+# This needs to be inlined to avoid performance issues
+@inline function Base.getproperty(g::RectiGrid, p::Symbol)
+    hasproperty(g, p) || throw(ArgumentError("RectiGrid does not have property $p"))
+    return basedim(getproperty(named_dims(g), p))
+end
+
+# This is needed to prevent doubling up on the dimension
+@inline function RectiGrid(
+        dims::NamedTuple{Na, T}; executor = Serial(),
+        header::AMeta = NoHeader(),
+        posang = zero(eltype(first(values(dims))))
+    ) where {
+        Na, N,
+        T <: NTuple{
+            N,
+            DD.Dimension,
+        },
+    }
+    return RectiGrid(values(dims); executor, header, posang)
+end
+
+@noinline function _make_dims(ks, vs)
+    ds = DD.name2dim(ks)
+    return map(ds, vs) do d, v
+        return DD.rebuild(d, v)
+    end
+end
+
+"""
+    RectiGrid(dims::NamedTuple{Na}; executor=Serial(), header=ComradeBase.NoHeader(), posang=0.0)
+    RectiGrid(dims::NTuple{N, <:DimensionalData.Dimension}; executor=Serial(), header=ComradeBase.NoHeader(), posang=0.0)
+
+Creates a rectilinear grid of pixels with the dimensions `dims`. The convention is that
+the first two dimension are the spatial dimensions `X/U` and `Y/V`. The remaining dimensions
+can be anything, for example:
+  - (:X, :Y, :Ti, :Fr)
+  - (:X, :Y, :Fr, :Ti)
+  - (:X, :Y) # spatial only
+
+where `X/U,Y/V` are the RA and DEC spatial dimensions in image/visibility space respectively, 
+`Ti` is the time dimension and `Fr` is the frequency dimension.
+
+Note that the majority of the time users should just call [`spatialgrid`](@ref) to create
+a spatial grid.
+
+## Optional Arguments
+
+ - `executor`: specifies how different models
+    are executed. The default is `Serial` which mean serial CPU computations. For threaded
+    computations use [`ThreadsEx()`](@ref) or load `OhMyThreads.jl` to uses their schedulers.
+ - `header`: specified underlying header information for the grid. This is used to store
+    information about the image such as the source, RA and DEC, MJD.
+ - `posang`: specifies the position angle of the grid, relative to RA=0 axis. Note that when 
+             `posang != 0` the X and Y coordinate are relative to the rotated grid and not
+             the on sky RA and DEC orientation. To see the true on sky points you can access
+             them by calling `domainpoints(grid)`.
+
+!!! warn
+    The `posang` argument and the overall rotation of the grid is currently experimental and
+    and may change abruptly in the future even on minor releases.
+
+## Examples
+
+```julia
+dims = RectiGrid((X(-5.0:0.1:5.0), Y(-4.0:0.1:4.0), Ti([1.0, 1.5, 1.75]), Fr([230, 345])); executor=ThreadsEx())
+dims = RectiGrid((X = -5.0:0.1:5.0, Y = -4.0:0.1:4.0, Ti = [1.0, 1.5, 1.75], Fr = [230, 345]); executor=ThreadsEx()))
+```
+"""
+@inline function RectiGrid(
+        nt::NamedTuple; executor = Serial(),
+        header::AMeta = ComradeBase.NoHeader(),
+        posang = zero(eltype(first(values(nt))))
+    )
+    dims = _make_dims(keys(nt), values(nt))
+    return RectiGrid(dims; executor, header, posang)
+end
+
+function DD.rebuild(
+        grid::RectiGrid, dims, executor = executor(grid),
+        header = header(grid), posang = posang(grid)
+    )
+    return RectiGrid(dims; executor, header, posang)
+end
+
+function DD.rebuild(
+        grid::RectiGrid; dims = dims(grid), executor = executor(grid),
+        header = header(grid), posang = posang(grid)
+    )
+    return rebuild(grid, dims, executor, header, posang)
+end
+
+"""
+    gridproduct(g::AbstractRectiGrid, dims::DimensionalData.Dimension...)
+    g ⊗ dim
+
+Returns `g` with the non-spatial `dims` appended after its own, keeping its executor,
+header and position angle. The order of the factors is the memory layout of maps over the
+result, so `g ⊗ Ti(t) ⊗ Fr(ν)` has dims `(X, Y, Ti, Fr)`. A dim that `g` already has, a
+spatial dim, the point index `Node`, or a grid on the right throws an `ArgumentError`.
+
+TensorCore (and packages re-exporting it, such as Images) also exports `⊗`; with both
+loaded, write `ComradeBase.:⊗` or `gridproduct`.
+"""
+function gridproduct(g::AbstractRectiGrid, ds::DD.Dimension...)
+    gds = dims(g)
+    for d in ds
+        d isa Union{DD.XDim, DD.YDim} &&
+            throw(ArgumentError("cannot append the spatial dim $(DD.name(d)) to a grid; build spatial dims with `spatialgrid`"))
+        d isa Node &&
+            throw(ArgumentError("cannot append Node to a grid; Node is the point index of a StructuredDomain"))
+        DD.hasdim(gds, d) &&
+            throw(ArgumentError("the grid already has a $(DD.name(d)) dim; dims of the grid are $(DD.name(gds))"))
+    end
+    allunique(map(DD.basetypeof, ds)) ||
+        throw(ArgumentError("the appended dims repeat a dim: $(DD.name(ds))"))
+    return rebuild(g; dims = (gds..., ds...))
+end
+
+gridproduct(::AbstractRectiGrid, h::AbstractRectiGrid) =
+    throw(ArgumentError("the right factor of a grid product must be a non-spatial dim, got a $(nameof(typeof(h)))"))
+
+const ⊗ = gridproduct
+
+function refinespatial(g::RectiGrid, refac::NTuple{2})
+    ns = size(g)[1:2]
+    d = map(basedim, named_dims(g))
+    d2 = @set d.X.len = ceil(Int, ns[1] * refac[1])
+    d3 = @set d2.Y.len = ceil(Int, ns[2] * refac[2])
+    dn = dims(g)
+    dnn = @set dn[1] = X(d3.X)
+    dnn2 = @set dnn[2] = Y(d3.Y)
+    dnew = (dnn2[1:2]..., dn[3:end]...)
+    return rebuild(g; dims = dnew)
+end
+
+refinespatial(g::RectiGrid, refac::Number) = refinespatial(g, (refac, refac))

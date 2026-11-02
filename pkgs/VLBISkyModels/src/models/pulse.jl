@@ -1,0 +1,170 @@
+export DeltaPulse, BSplinePulse, BicubicPulse, RaisedCosinePulse
+
+"""
+    Pulse
+Pixel response function for a radio image model. This makes
+a discrete sampling continuous by picking a certain *smoothing*
+kernel for the image.
+
+# Notes
+To see the implemented Pulses please use the subtypes function i.e.
+`subtypes(Pulse)`
+"""
+abstract type Pulse <: AbstractModel end
+
+visanalytic(::Type{<:Pulse}) = IsAnalytic()
+imanalytic(::Type{<:Pulse}) = IsAnalytic()
+isprimitive(::Type{<:Pulse}) = IsPrimitive()
+
+@inline intensity_point(p::Pulse, ps) = κ(p::Pulse, ps.X) * κ(p::Pulse, ps.Y)
+@inline visibility_point(p::Pulse, ps) = ω(p::Pulse, ps.U) * ω(p::Pulse, ps.V)
+
+flux(p::Pulse) = κflux(p)^2
+@inline radialextent(::Pulse) = 1
+@inline kernel_extent(p::Pulse) = radialextent(p), radialextent(p)
+
+"""
+    $(TYPEDEF)
+A dirac comb pulse function. This means the image is just the
+dicrete Fourier transform
+"""
+struct DeltaPulse{T} <: Pulse end
+DeltaPulse() = DeltaPulse{Float64}()
+# This should really be a delta function but whatever
+κflux(::DeltaPulse{T}) where {T} = one(T)
+@inline κ(::DeltaPulse{T}, x) where {T} = ifelse(abs(x) < 0.5, one(T), zero(T))
+@inline ω(::DeltaPulse{T}, u) where {T} = complex(one(T))
+@inline kernel_extent(::DeltaPulse{T}) where {T} = (one(T), one(T))
+
+@doc raw"""
+    $(TYPEDEF)
+Uses the basis spline (BSpline) kernel of order `N`. These are the kernel that come
+from recursively convolving the tophat kernel
+```math
+    B_0(x) = \begin{cases} 1 & |x| < 1 \\ 0 & otherwise \end{cases}
+```
+`N` times.
+
+## Notes
+
+BSpline kernels have a number of nice properties:
+1. Simple frequency response $\sinc(u/2)^N$
+2. preserve total intensity
+
+For `N`>1 these kernels aren't actually interpolation kernels however, this doesn't matter
+for us.
+
+Currently only the 0,1,3 order kernels are implemented.
+"""
+struct BSplinePulse{N, T} <: Pulse end
+BSplinePulse{N}() where {N} = BSplinePulse{N, Float64}()
+@inline ω(::BSplinePulse{N}, u) where {N} = complex(
+    Base.literal_pow(
+        ^, sinc(u),
+        Val((N + 1))
+    )
+)
+@inline κflux(::BSplinePulse) = 1.0
+
+@inline κ(::BSplinePulse{0}, x::T) where {T} = ifelse(abs(x) < 0.5, one(T), zero(T))
+
+@inline function κ(::BSplinePulse{1}, x::T) where {T}
+    mag = abs(x)
+    Tl = T
+    return ifelse(mag < 1, 1 - mag, zero(Tl))
+end
+
+# Branch-free selection: both polynomials are total and cheap, and `ifelse` (with an eager
+# `&` in place of a chained comparison's short-circuit) is the form a traced or GPU scalar
+# kernel can take, where a branch on the data cannot.
+@inline function κ(::BSplinePulse{3}, x::T) where {T}
+    mag = abs(x)
+    Tl = T
+    cond1 = mag < 1
+    cond2 = (1 ≤ mag) & (mag < 2)
+    r1 = evalpoly(mag, (4, 0, -6, 3)) / 6
+    r2 = evalpoly(mag, (8, -12, 6, -1)) / 6
+    return ifelse(cond1, r1, ifelse(cond2, r2, zero(Tl)))
+end
+@inline radialextent(::BSplinePulse{N, T}) where {N, T} = convert(paramtype(T), max(N, 1))
+
+"""
+    $(TYPEDEF)
+    BicubicPulse(b = -0.5)
+
+The bicubic pulse for imaging. This pulse tends to have a flat spectrum but for most values
+of `b` can produce negative intensities in an image. This is the pulse used in
+[`Broderick et al. 2020`](https://iopscience.iop.org/article/10.3847/1538-4357/ab9c1f).
+"""
+struct BicubicPulse{T} <: Pulse
+    b::T
+end
+
+BicubicPulse() = BicubicPulse{Float64}(-0.5)
+
+# Branch-free selection, for the same reason as the `BSplinePulse{3}` kernel.
+function κ(k::BicubicPulse, x::T) where {T}
+    mag = abs(x)
+    b = k.b
+    Tl = T
+    cond1 = mag < 1
+    cond2 = (1 ≤ mag) & (mag < 2)
+    r1 = evalpoly(mag, (one(Tl), zero(Tl), -(b + 3), b + 2))
+    r2 = b * evalpoly(mag, (-Tl(4), Tl(8), -Tl(5), one(Tl)))
+    return ifelse(cond1, r1, ifelse(cond2, r2, zero(Tl)))
+end
+radialextent(::BicubicPulse{T}) where {T} = convert(paramtype(T), 2)
+
+function ω(m::BicubicPulse{T}, u) where {T}
+    b = m.b
+    k = 2T(π) * u
+    r1 = 1 - (2 * b + 1) * k^2 / 15 + (16 * b + 1) * k^4 / 560 + 0im
+    s, c = sincos(k)
+    k3 = k^3
+    k4 = k3 * k
+    c2 = c^2 - s^2
+    r2 = -4 * s * (2 * b * c + 4 * b + 3) * inv(k3) +
+        12 * inv(k4) * (b * (1 - c2) + 2 * (1 - c)) + 0im
+    return ifelse(abs(k) < T(1.0e-2), r1, r2)
+end
+
+"""
+    $(TYPEDEF)
+    RaisedCosinePulse()
+    RaisedCosinePulse(rolloff)
+
+Raised cosine pulse function. This tends to be a very flat response, where the roll off
+controls the speed of decay. By default we set `rolloff = 0.5`.
+"""
+struct RaisedCosinePulse{T} <: Pulse
+    rolloff::T
+end
+
+κflux(::Pulse) = 1
+
+RaisedCosinePulse() = RaisedCosinePulse{Float64}(0.5)
+
+# Branch-free selection, for the same reason as the `BSplinePulse{3}` kernel.
+function κ(k::RaisedCosinePulse, x::T) where {T}
+    mag = abs(x)
+    β = k.rolloff
+    Tl = T
+    cond1 = 2 * mag < 1 - β
+    cond2 = (1 - β <= 2 * mag) & (2 * mag <= 1 + β)
+    r2 = 1 / 2 * (1 + cospi((mag - (1 - β) / 2) / β))
+    return ifelse(cond1, one(Tl), ifelse(cond2, r2, zero(Tl)))
+end
+
+radialextent(κ::RaisedCosinePulse) = 1 + κ.rolloff
+
+# Branch-free selection, matching the `BicubicPulse` frequency response above. `ifelse`
+# selects lanewise, so the NaN the general expression produces at the removable singularity
+# `|u| = 1/(2β)` never reaches the result.
+function ω(k::RaisedCosinePulse, u::T) where {T}
+    β = k.rolloff
+    Tπ = T(π)
+    cond1 = abs(u) ≈ inv(2 * β)
+    r1 = complex(Tπ / 4 * sinc(inv(2 * β)))
+    r2 = complex(sinc(u) * cospi(β * u) * inv(1 - (2β * u)^2))
+    return ifelse(cond1, r1, r2)
+end

@@ -1,0 +1,92 @@
+module VLBISkyModels
+
+using Accessors: @set
+using ArgCheck
+using AbstractFFTs
+using ChainRulesCore
+using ForwardDiff
+using FITSIO
+using DocStringExtensions
+using DelimitedFiles
+using EnzymeCore
+using EnzymeCore: EnzymeRules, Const, Active, Duplicated
+using FFTW
+using FillArrays
+using GridInterpolations
+using NFFT
+using PaddedViews
+using Reexport
+using RecipesBase
+using SpecialFunctions
+using StaticArrays
+using StructArrays
+using FieldDimArrays: FieldDimArray
+using LinearAlgebra
+using Printf
+using Serialization
+using ReactantCore: @trace
+
+import ComradeBase: DomainParams, build_param, apply_param, paramfield, paramtype, getparam,
+    @unpack_params, rgetindex, rsetindex!
+
+@reexport using ComradeBase
+@reexport using PolarizedTypes
+@reexport using DimensionalData
+const DD = DimensionalData
+
+"""
+    rad2μas(x)
+
+Converts a number from radians to micro-arcseconds (μas)
+"""
+@inline rad2μas(x) = 180 * 3600 * 1_000_000 * x / π
+
+"""
+    μas2rad(x)
+
+Converts a number from micro-arcseconds (μas) to rad
+"""
+@inline μas2rad(x) = x / (180 * 3600 * 1_000_000) * π
+
+export linearpol, mbreve, evpa, rad2μas, μas2rad
+
+using ComradeBase: AbstractDomain, AbstractSingleDomain, AbstractRectiGrid,
+    AbstractModel, AbstractPolarizedModel,
+    StructuredDomain, RectiGrid
+
+import ComradeBase: flux, radialextent, intensitymap, intensitymap!,
+    intensitymap_analytic, intensitymap_analytic!,
+    intensitymap_numeric, intensitymap_numeric!,
+    visibilitymap, visibilitymap!,
+    visibilitymap_analytic, visibilitymap_analytic!,
+    visibilitymap_numeric, visibilitymap_numeric!,
+    closure_phase, closure_phasemap,
+    logclosure_amplitude, logclosure_amplitudemap,
+    bispectrummap, bispectrum, allocate_imgmap, allocate_vismap,
+    create_vismap, create_imgmap
+
+# Write your package code here.
+# include("stokes_image.jl")
+include(joinpath("fourierdomain", "fourierdomain.jl"))
+include(joinpath("models", "models.jl"))
+include("utility.jl")
+# include("rules.jl")
+include(joinpath("visualizations", "vis.jl"))
+include("io.jl")
+
+@static if VERSION >= v"1.11"
+    eval(
+        Expr(
+            :public,
+            :Pulse, :GeometricModel, :ModelModifier, :CompositeModel, :AbstractImageTemplate,
+            :ModifiedModel, :AddModel, :ConvolvedModel,
+            :added, :unmodified, :basemodel,
+            :transform_image, :transform_uv, :scale_image, :scale_uv, :posangle,
+            :AbstractFourierDualDomain, :FourierTransform, :FFTPlan, :NUFTPlan,
+            :uvgrid, :xygrid, :uviterator,
+            :Constant, :GaussDisk, :LogSpiral, :AxisTaps,
+        )
+    )
+end
+
+end

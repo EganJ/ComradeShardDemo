@@ -1,0 +1,32 @@
+[deps]
+Comrade = "99d987ce-9a1e-4df8-bc0b-1ea019aa547b"
+ComradeBase = "6d8c423b-a35f-4ef1-850c-862fe21f82c4"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
+FieldDimArrays = "8162b97e-af21-446d-9d6e-57a067fd3c83"
+InterferometricModels = "b395d269-c2ec-4df6-b679-36919ad600ca"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+LogDensityProblems = "6fdf6af0-433a-55f7-b3ed-c6c6e0b8df7c"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Reactant = "3c362404-f566-11ee-1572-e11a4b42c853"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+VLBIData = "679fc9cc-3e84-11e9-251b-cbd013bd8115"
+VLBIFiles = "c1ebf4c8-f9d4-409a-8daf-7009448f4e6e"
+VLBIImagePriors = "b1ba175b-8447-452c-b961-7db2d6f7a029"
+VLBIInstrumentModels = "5087bce4-10f5-47c6-9d74-db5bcd7088a9"
+VLBILikelihoods = "90db92cd-0007-4c0a-8e51-dbf0782ce592"
+VLBISkyModels = "d6343c73-7174-4e0f-bb64-562643efbeca"
+
+[sources]
+Comrade = {path = "pkgs/Comrade"}
+ComradeBase = {path = "pkgs/ComradeBase"}
+FieldDimArrays = {path = "pkgs/FieldDimArrays"}
+InterferometricModels = {path = "pkgs/InterferometricModels"}
+Reactant = {rev = "main", url = "https://github.com/EnzymeAD/Reactant.jl"}
+VLBIData = {path = "pkgs/VLBIData"}
+VLBIImagePriors = {path = "pkgs/VLBIImagePriors"}
+VLBIInstrumentModels = {path = "pkgs/VLBIInstrumentModels"}
+VLBILikelihoods = {path = "pkgs/VLBILikelihoods"}
+VLBISkyModels = {path = "pkgs/VLBISkyModels"}

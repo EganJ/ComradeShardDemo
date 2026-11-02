@@ -1,0 +1,114 @@
+module VLBIData
+
+using DataManipulation
+using AccessorsExtra
+using Unitful
+using StaticArrays
+using StructArrays
+using InterferometricModels
+import InterferometricModels: UV, visibility, visibilities
+using SkyCoords: AbstractSkyCoords, ICRSCoords
+using LinearAlgebra: qr, ColumnNorm, dot, norm
+using Statistics: mean, median, quantile, std
+using SpecialFunctions: besselix
+using Uncertain
+using IntervalSets
+using StructHelpers
+using EnumX
+using Printf
+using DateFormats
+using UnitfulAngles
+import PolarizedTypes as PolT
+using PolarizedTypes: CoherencyMatrix, IPol
+
+import DispatchDoctor
+macro stable(ex)
+    return esc(:($(DispatchDoctor).@stable default_mode = "disable" $ex))
+end
+
+
+export VLBI,
+	Antenna, antenna_names, Baseline,
+	UV, UVs, UVarea, visibility, frequency,
+	VisSpec, VisAmpSpec, ClosurePhaseSpec, ClosureAmpSpec,
+	uvtable, synthesize_uvtable,
+	is_parallel_hands, is_cross_hands, stokes_to_feeds,
+	CoherencyMatrix, IPol
+
+
+# before Julia 1.11:
+filter(f, xs) = Base.filter(f, xs)
+filter(f, xs::NamedTuple) = xs[Base.filter(k -> f(xs[k]), keys(xs))]
+
+
+include("antenna.jl")
+include("baseline.jl")
+include("stokes.jl")
+include("visspecs.jl")
+include("closurespecs.jl")
+include("closure_calculations.jl")
+include("trivial_calculations.jl")
+include("scans.jl")
+include("averaging.jl")
+include("error_rescaling.jl")
+include("selfcal.jl")
+include("reindex.jl")
+include("polarizedtypes.jl")
+include("likelihoods.jl")
+include("simulate.jl")
+
+
+function uvtable end
+
+
+function frequency end
+function frequency(q::Quantity)
+	q |> u"Hz"  # to throw an error
+	q
+end
+
+function antenna_names end
+# fallbacks:
+@accessor antenna_names(x) = antenna_names(Baseline(x))
+AccessorsExtra.hasoptic(obj, ::typeof(antenna_names)) = AccessorsExtra.hasoptic(obj, Baseline)
+
+
+@accessor frequency(x::NamedTuple) = frequency(x.freq_spec)
+@accessor Baseline(x::NamedTuple) = Baseline(x.spec)
+@accessor UV(x::NamedTuple) = UV(x.spec)
+@accessor UVs(x::NamedTuple) = UVs(x.spec)
+@stable conjvis(x::NamedTuple) = @p let
+	x
+	modify(conj, __, @o _.spec)
+	modify(conj, __, @maybe _.value)
+	modify(_reverse_stokes, __, @maybe _.stokes)
+end
+@accessor visibility(x::NamedTuple) = x.value
+
+# XXX: hasoptic should be handled by @accessor
+AccessorsExtra.hasoptic(x::NamedTuple, ::Type{UV}) = hasproperty(x, :spec) && hasoptic(x.spec, UV)
+AccessorsExtra.hasoptic(x::NamedTuple, ::Type{UVs}) = hasproperty(x, :spec) && hasoptic(x.spec, UVs)
+AccessorsExtra.hasoptic(x::NamedTuple, ::Type{Baseline}) = hasproperty(x, :spec) && hasoptic(x.spec, Baseline)
+
+
+@generated intersect_nt_type(::Type{<:NamedTuple{KS1}}, ::Type{<:NamedTuple{KS2}}) where {KS1,KS2} = NamedTuple{Tuple(KS1 ∩ KS2)}
+
+
+baremodule VLBI
+using Reexport
+@reexport import ..VLBIData:
+	Antenna, antenna_names, Baseline,
+	UV, UVs, UVarea, visibility, frequency,
+	AbstractSpec, VisSpec, VisSpec0, VisAmpSpec, ClosurePhaseSpec, ClosureAmpSpec,
+	conjvis, add_conjvis, average_data, debias_amplitudes, closures_scan, closures_all,
+	uvshift,
+	ConsecutiveDifferencesStandard, CoherentAverageScatter, ClosurePhaseConsecutive, CrossFrequencyScatter, ErrMulSame, ErrMulFallback, find_errmul, rescale_visibility_errors,
+	loglike_parts, loglike,
+	AmplitudeAnalytic, solve_gains, apply_gains, selfcal,
+	uv_reindex, uvtable, uvtable_values_to, synthesize_uvtable,
+	GapBasedScans, FixedTimeIntervals, ByFrequency, Coherent, Incoherent, add_scan_ids, scan_intervals,
+	is_parallel_hands, is_cross_hands, stokes_to_feeds,
+	CoherencyMatrix, IPol
+end
+
+end

@@ -1,0 +1,41 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1793637129.282189 1293980 pjrt_client.cc:589] PjRt-IFRT device count: total=4, addressable=4
+I0000 00:00:1793637129.282238 1293980 pjrt_client.cc:593] Addressable PjRt-IFRT device: CpuDevice(id=0)
+I0000 00:00:1793637129.282240 1293980 pjrt_client.cc:593] Addressable PjRt-IFRT device: CpuDevice(id=1)
+I0000 00:00:1793637129.282241 1293980 pjrt_client.cc:593] Addressable PjRt-IFRT device: CpuDevice(id=2)
+I0000 00:00:1793637129.282242 1293980 pjrt_client.cc:593] Addressable PjRt-IFRT device: CpuDevice(id=3)
+backend = cpu, devices = 4 (Reactant.XLA.IFRT.Device), threads = 8
+NPIX = 16, NT = 4, AVG = scan, NEVAL = 3, MODES = cpu,single,shard
+[13.4 s | RSS 1.11 GiB, peak 1.25 GiB] loaded 274 visibilities
+[29.7 s | RSS 1.17 GiB, peak 1.25 GiB] posterior: 274 visibilities, 4 frames of 16×16, 1256 parameters
+[87.6 s | RSS 1.33 GiB, peak 1.42 GiB] CPU first calls: logdensity 591.42 ms, gradient 57.2 s (includes Julia/Enzyme compilation); logdensity = -1.3508678100579055e7
+[87.9 s | RSS 1.33 GiB, peak 1.42 GiB] CPU: logdensity 175.0 µs (min 154.1 µs), gradient 458.2 µs (min 447.3 µs)
+[155.4 s | RSS 1.96 GiB, peak 1.96 GiB] 1 device: compiled logdensity in 45.49 s
+[166.1 s | RSS 2.02 GiB, peak 2.02 GiB] 1 device: compiled gradient in 10.71 s
+[166.7 s | RSS 2.02 GiB, peak 2.02 GiB] 1 device: logdensity = -1.3508678100735309e7, rel. error vs CPU = 1.1566903520485001e-11; gradient rel. error (2-norm) = 4.59119573595251e-10, max abs = 0.0013525476679205894
+[166.9 s | RSS 2.02 GiB, peak 2.02 GiB] 1 device: logdensity 181.0 µs (min 151.1 µs), gradient 672.5 µs (min 336.6 µs)
+[177.2 s | RSS 2.03 GiB, peak 2.03 GiB] sharded posterior placed in 9.53 s
+W0000 00:00:1793637342.672306 1293980 shardy_xla_pass.cc:431] Module contains sdy shardings or meshes in frontend_attributes even when HloShardingV3 is enabled. This is probably due to stale model export, try re-exporting the model on HEAD (with HloShardingV3 enabled). Disabling HloShardingV3 here to prevent conflicts during Shardy import
+device arrays in the posterior: 24, all with a sharding: true
+data on the devices: size (400, 1) (host 274 visibilities, padded per device)
+  device 1 holds rows 1:100 of the data
+  device 2 holds rows 101:200 of the data
+  device 3 holds rows 201:300 of the data
+  device 4 holds rows 301:400 of the data
+[193.4 s | RSS 2.15 GiB, peak 2.15 GiB] 4 devices: compiled logdensity in 13.13 s
+W0000 00:00:1793637350.607049 1293980 shardy_xla_pass.cc:431] Module contains sdy shardings or meshes in frontend_attributes even when HloShardingV3 is enabled. This is probably due to stale model export, try re-exporting the model on HEAD (with HloShardingV3 enabled). Disabling HloShardingV3 here to prevent conflicts during Shardy import
+[201.0 s | RSS 2.21 GiB, peak 2.21 GiB] 4 devices: compiled gradient in 7.51 s
+[201.6 s | RSS 2.21 GiB, peak 2.21 GiB] 4 devices: logdensity = -1.3508678100735312e7, rel. error vs CPU = 1.156717929064332e-11; gradient rel. error (2-norm) = 4.5911957510126736e-10, max abs = 0.0013525476679205894
+[201.8 s | RSS 2.21 GiB, peak 2.21 GiB] 4 devices: logdensity 9.97 ms (min 9.47 ms), gradient 8.7 ms (min 8.67 ms)
+
+SUMMARY (median of 3 calls; NPIX = 16, NT = 4, 274 visibilities, 1256 parameters)
+CPU (no Reactant)      compile ld     NaN s, grad     NaN s | logdensity  175.0 µs | gradient  458.2 µs
+Reactant, 1 device     compile ld   45.49 s, grad   10.71 s | logdensity  181.0 µs | gradient  672.5 µs, rel. err ld 1.2e-11, grad 4.6e-10
+Reactant, 4 devices    compile ld   13.13 s, grad    7.51 s | logdensity   9.97 ms | gradient    8.7 ms, rel. err ld 1.2e-11, grad 4.6e-10
+[201.9 s | RSS 2.21 GiB, peak 2.21 GiB] done
+┌ Warning: Assignment to `x` in soft scope is ambiguous because a global variable by the same name exists: `x` will be treated as a new local. Disambiguate by using `local x` to suppress this warning or `global x` to assign to the existing global variable.
+└ @ ~/.julia/dev/ComradeShardDemo/main.jl:211
+┌ Warning: Assignment to `m` in soft scope is ambiguous because a global variable by the same name exists: `m` will be treated as a new local. Disambiguate by using `local m` to suppress this warning or `global m` to assign to the existing global variable.
+└ @ ~/.julia/dev/ComradeShardDemo/main.jl:211
+┌ Warning: Assignment to `v` in soft scope is ambiguous because a global variable by the same name exists: `v` will be treated as a new local. Disambiguate by using `local v` to suppress this warning or `global v` to assign to the existing global variable.
+└ @ ~/.julia/dev/ComradeShardDemo/main.jl:211

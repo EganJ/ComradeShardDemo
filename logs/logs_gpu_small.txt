@@ -1,0 +1,463 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+W0000 00:00:1793637865.319135 1318610 rocm_memory_bandwidth.cc:85] No SMI firmware peak for 0000:65:00.0 (amd_smi gpu_metrics reports no peak VRAM bandwidth (got 18446744073709551615)) is available from amd-smi/firmware.
+I0000 00:00:1793637865.415708 1318435 service.cc:156] XLA service 0x2de77390 initialized for platform ROCM (this does not guarantee that XLA will be used). Devices:
+I0000 00:00:1793637865.415744 1318435 service.cc:172]   StreamExecutor [0]: AMD Radeon 890M Graphics, AMDGPU ISA version: gfx1150 (Driver: 7.17.26413; Runtime: 7.17.26413; Toolkit: 7.17.26413; DNN: 1.3.0)
+I0000 00:00:1793637865.668386 1318435 se_gpu_pjrt_client.cc:1487] Using BFC allocator.
+I0000 00:00:1793637865.668463 1318435 gpu_helpers.cc:261] XLA backend will use up to 11.43GiB (12276727808 bytes) on device 0 for BFCAllocator.
+I0000 00:00:1793637865.668479 1318435 gpu_helpers.cc:348] XLA backend will use up to 4093640704 bytes on device 0 for CollectiveBFCAllocator.
+W0000 00:00:1793637865.668944 1318435 rocm_memory_bandwidth.cc:85] No SMI firmware peak for 0000:65:00.0 (amd_smi gpu_metrics reports no peak VRAM bandwidth (got 18446744073709551615)) is available from amd-smi/firmware.
+I0000 00:00:1793637865.673751 1318435 pjrt_client.cc:589] PjRt-IFRT device count: total=1, addressable=1
+I0000 00:00:1793637865.673773 1318435 pjrt_client.cc:593] Addressable PjRt-IFRT device: RocmDevice(id=0)
+backend = gpu, devices = 1 (Reactant.XLA.IFRT.Device), threads = 8
+NPIX = 16, NT = 4, AVG = scan, NEVAL = 10, MODES = cpu,single
+[14.2 s | RSS 1.12 GiB, peak 1.47 GiB] loaded 274 visibilities
+[31.2 s | RSS 1.23 GiB, peak 1.47 GiB] posterior: 274 visibilities, 4 frames of 16×16, 1256 parameters
+[91.6 s | RSS 1.47 GiB, peak 1.57 GiB] CPU first calls: logdensity 594.27 ms, gradient 59.74 s (includes Julia/Enzyme compilation); logdensity = -1.3508678100579055e7
+[91.9 s | RSS 1.47 GiB, peak 1.57 GiB] CPU: logdensity 177.0 µs (min 148.7 µs), gradient 425.4 µs (min 417.0 µs)
+I0000 00:00:1793637988.636706 1318435 se_gpu_pjrt_compiler.cc:422] Found GPU target config and a PjRtClient with matching configuration. Performing a JIT compilation.
+I0000 00:00:1793637992.355330 1318644 amdgpu_backend.cc:163] TF_XLA_HSACO_CACHE_DIR is not set: HSACO file cache is disabled!
+E0000 00:00:1793638050.262789 1318435 config_assigner.cc:601] Could not get config for HLO: %input_reduce_fusion.11 = f64[] fusion(%loop_multiply_fusion.2), kind=kInput, calls=
+(param_0.1984: f64[274]) -> f64[] {
+  %param_0.1984 = f64[274]{0} parameter(0)
+  %constant.116.2 = f64[] constant(0)
+  ROOT %reduce.2.1 = f64[] reduce(%param_0.1984, %constant.116.2), dimensions={0}, to_apply=
+  (Arg_0.7: f64[], Arg_1.7: f64[]) -> f64[] {
+    %Arg_0.7 = f64[] parameter(0)
+    %Arg_1.7 = f64[] parameter(1)
+    ROOT %add.77.0 = f64[] add(%Arg_0.7, %Arg_1.7)
+  }
+}. Status: NOT_FOUND: All configs failed during profiling or were excluded from selection.
+Failures (2):
+REDZONE CHECK FAILED: INTERNAL: Failed call to hipGetFuncBySymbol: hipError_t(98)
+REDZONE CHECK FAILED: INTERNAL: Failed call to hipGetFuncBySymbol: hipError_t(98)
+=== Source Location Trace: ===
+external/xla/xla/backends/autotuner/config_selector.cc:88
+external/xla/xla/backends/autotuner/autotuner.cc:249
+
+E0000 00:00:1793638051.196818 1318435 config_assigner.cc:601] Could not get config for HLO: %loop_add_fusion = f64[] fusion(%input_reduce_fusion.11, %Arg_26.1, %input_reduce_fusion.10, %input_reduce_fusion.9, %loop_exponential_fusion, /*index=5*/%input_reduce_fusion, %get-tuple-element.9, %get-tuple-element.8, %get-tuple-element.2, %get-tuple-element.5, /*index=10*/%input_reduce_fusion.1, %input_reduce_fusion.2, %get-tuple-element.6, %get-tuple-element.13, %get-tuple-element.12, /*index=15*/%get-tuple-element.11, %input_reduce_fusion.3, %input_reduce_fusion.4, %get-tuple-element.10, %get-tuple-element.14, /*index=20*/%get-tuple-element.15, %get-tuple-element.4, %input_reduce_fusion.5, %input_reduce_fusion.6, %get-tuple-element.3, /*index=25*/%get-tuple-element.7, %get-tuple-element.1, %get-tuple-element, %input_reduce_fusion.7, %loop_divide_fusion, /*index=30*/%loop_divide_fusion.1, %loop_divide_fusion.2, %loop_divide_fusion.3), kind=kLoop, calls=
+(param_0.1997: f64[], param_1.2415: f64[1256], param_2.1852: f64[], param_3.703: f64[], param_4.803: f64[], param_5.736: f64[], param_6.522: f64[14], param_7.315: f64[14], param_8.272: f64[14], param_9.220: f64[14], param_10.181: f64[], param_11.184: f64[], param_12.216: f64[14], param_13.208: f64[14], param_14.123: f64[14], param_15.121: f64[14], param_16.117: f64[], param_17.104: f64[], param_18.82: f64[14], param_19.74: f64[14], param_20.84: f64[14], param_21.84: f64[14], param_22.83: f64[], param_23.107: f64[], param_24.103: f64[14], param_25.70: f64[14], param_26.72: f64[14], param_27.68: f64[14], param_28.68: f64[], param_29.73: f64[1], param_30.78: f64[1], param_31.82: f64[1], param_32.88: f64[1]) -> f64[] {
+  %param_0.1997 = f64[] parameter(0)
+  %constant.76.1 = f64[] constant(-0.5)
+  %multiply.277.1 = f64[] multiply(%param_0.1997, %constant.76.1)
+  %constant.75.1 = f64[] constant(2642.7618535419597)
+  %add.256.1 = f64[] add(%multiply.277.1, %constant.75.1)
+  %param_28.68 = f64[] parameter(28)
+  %param_32.88 = f64[1]{0} parameter(32)
+  %multiply.99.1 = f64[1]{0} multiply(%param_32.88, %param_32.88)
+  %bitcast.41.16 = f64[] bitcast(%multiply.99.1)
+  %log-plus-one.16.3 = f64[] log-plus-one(%bitcast.41.16)
+  %constant.82.1 = f64[] constant(-256)
+  %multiply.161.11 = f64[] multiply(%log-plus-one.16.3, %constant.82.1)
+  %add.165.11 = f64[] add(%param_28.68, %multiply.161.11)
+  %constant.39.1 = f64[] constant(-470.49652900079246)
+  %add.7.9 = f64[] add(%add.165.11, %constant.39.1)
+  %param_27.68 = f64[14]{0} parameter(27)
+  %constant.116.15 = f64[] constant(0)
+  %reduce.3.11 = f64[] reduce(%param_27.68, %constant.116.15), dimensions={0}, to_apply=
+  (Arg_0.9: f64[], Arg_1.9: f64[]) -> f64[] {
+    %Arg_0.9 = f64[] parameter(0)
+    %Arg_1.9 = f64[] parameter(1)
+    ROOT %add.78.0 = f64[] add(%Arg_0.9, %Arg_1.9)
+  }
+  %param_26.72 = f64[14]{0} parameter(26)
+  %reduce.4.11 = f64[] reduce(%param_26.72, %constant.116.15), dimensions={0}, to_apply=
+  (Arg_0.11: f64[], Arg_1.11: f64[]) -> f64[] {
+    %Arg_0.11 = f64[] parameter(0)
+    %Arg_1.11 = f64[] parameter(1)
+    ROOT %add.79.0 = f64[] add(%Arg_0.11, %Arg_1.11)
+  }
+  %param_25.70 = f64[14]{0} parameter(25)
+  %reduce.10.11 = f64[] reduce(%param_25.70, %constant.116.15), dimensions={0}, to_apply=
+  (Arg_0.13: f64[], Arg_1.13: f64[]) -> f64[] {
+    %Arg_0.13 = f64[] parameter(0)
+    %Arg_1.13 = f64[] parameter(1)
+    ROOT %add.80.0 = f64[] add(%Arg_0.13, %Arg_1.13)
+  }
+  %param_24.103 = f64[14]{0} parameter(24)
+  %reduce.11.9 = f64[] reduce(%param_24.103, %constant.116.15), dimensions={0}, to_apply=
+  (Arg_0.16: f64[], Arg_1.16: f64[]) -> f64[] {
+    %Arg_0.16 = f64[] parameter(0)
+    %Arg_1.16 = f64[] parameter(1)
+    ROOT %add.81.0 = f64[] add(%Arg_0.16, %Arg_1.16)
+  }
+  %param_23.107 = f64[] parameter(23)
+  %add.155.9 = f64[] add(%reduce.11.9, %param_23.107)
+  %add.156.11 = f64[] add(%reduce.10.11, %add.155.9)
+  %add.157.11 = f64[] add(%reduce.4.11, %add.156.11)
+  %add.158.11 = f64[] add(%reduce.3.11, %add.157.11)
+  %constant.115.9 = f64[] constant(4)
+  %add.154.11 = f64[] add(%bitcast.41.16, %constant.115.9)
+  %param_1.2415 = f64[1256]{0} parameter(1)
+  %slice.156.370 = f64[256]{0} slice(%param_1.2415), slice={[0:256]}
+  %bitcast.42.367 = f64[16,16]{1,0} bitcast(%slice.156.370)
+  %slice.188.31 = f64[1,1]{1,0} slice(%bitcast.42.367), slice={[0:1], [0:1]}
+  %bitcast.59.28 = f64[] bitcast(%slice.188.31)
+  %multiply.153.15 = f64[] multiply(%add.154.11, %bitcast.59.28)
+  %slice.189.15 = f64[1,1]{1,0} slice(%bitcast.42.367), slice={[0:1], [1:2]}
+  %bitcast.60.13 = f64[] bitcast(%slice.189.15)
+  %subtract.132.13 = f64[] subtract(%multiply.153.15, %bitcast.60.13)
+  %slice.190.13 = f64[1,1]{1,0} slice(%bitcast.42.367), slice={[1:2], [0:1]}
+  %bitcast.61.11 = f64[] bitcast(%slice.190.13)
+  %subtract.133.11 = f64[] subtract(%subtract.132.13, %bitcast.61.11)
+  %multiply.154.13 = f64[] multiply(%subtract.133.11, %bitcast.59.28)
+  %add.159.11 = f64[] add(%add.158.11, %multiply.154.13)
+  %slice.191.29 = f64[1,1]{1,0} slice(%bitcast.42.367), slice={[0:1], [15:16]}
+  %bitcast.62.26 = f64[] bitcast(%slice.191.29)
+  %multiply.155.15 = f64[] multiply(%add.154.11, %bitcast.62.26)
+  %slice.192.15 = f64[1,1]{1,0} slice(%bitcast.42.367), slice={[0:1], [14:15]}
+  %bitcast.63.13 = f64[] bitcast(%slice.192.15)
+  %subtract.134.13 = f64[] subtract(%multiply.155.15, %bitcast.63.13)
+  %slice.193.13 = f64[1,1]{1,0} slice(%bitcast.42.367), slice={[1:2], [15:16]}
+  %bitcast.64.11 = f64[] bitcast(%slice.193.13)
+  %subtract.135.11 = f64[] subtract(%subtract.134.13, %bitcast.64.11)
+  %multiply.156.11 = f64[] multiply(%subtract.135.11, %bitcast.62.26)
+  %add.160.9 = f64[] add(%add.159.11, %multiply.156.11)
+  %slice.194.27 = f64[1,1]{1,0} slice(%bitcast.42.367), slice={[15:16], [0:1]}
+  %bitcast.65.24 = f64[] bitcast(%slice.194.27)
+  %multiply.157.13 = f64[] multiply(%add.154.11, %bitcast.65.24)
+  %slice.195.13 = f64[1,1]{1,0} slice(%bitcast.42.367), slice={[15:16], [1:2]}
+  %bitcast.66.11 = f64[] bitcast(%slice.195.13)
+  %subtract.136.11 = f64[] subtract(%multiply.157.13, %bitcast.66.11)
+  %slice.196.11 = f64[1,1]{1,0} slice(%bitcast.42.367), slice={[14:15], [0:1]}
+  %bitcast.67.9 = f64[] bitcast(%slice.196.11)
+  %subtract.137.9 = f64[] subtract(%subtract.136.11, %bitcast.67.9)
+  %multiply.158.11 = f64[] multiply(%subtract.137.9, %bitcast.65.24)
+  %add.161.9 = f64[] add(%add.160.9, %multiply.158.11)
+  %slice.197.25 = f64[1,1]{1,0} slice(%bitcast.42.367), slice={[15:16], [15:16]}
+  %bitcast.68.22 = f64[] bitcast(%slice.197.25)
+  %multiply.159.13 = f64[] multiply(%add.154.11, %bitcast.68.22)
+  %slice.198.13 = f64[1,1]{1,0} slice(%bitcast.42.367), slice={[15:16], [14:15]}
+  %bitcast.69.11 = f64[] bitcast(%slice.198.13)
+  %subtract.138.11 = f64[] subtract(%multiply.159.13, %bitcast.69.11)
+  %slice.199.11 = f64[1,1]{1,0} slice(%bitcast.42.367), slice={[14:15], [15:16]}
+  %bitcast.70.9 = f64[] bitcast(%slice.199.11)
+  %subtract.139.9 = f64[] subtract(%subtract.138.11, %bitcast.70.9)
+  %multiply.160.9 = f64[] multiply(%subtract.139.9, %bitcast.68.22)
+  %add.162.7 = f64[] add(%add.161.9, %multiply.160.9)
+  %constant.73.1 = f64[] constant(1)
+  %add.163.7 = f64[] add(%bitcast.41.16, %constant.73.1)
+  %divide.16.5 = f64[] divide(%add.162.7, %add.163.7)
+  %subtract.141.9 = f64[] subtract(%add.7.9, %divide.16.5)
+  %constant.67.2 = f64[] constant(0.5)
+  %multiply.162.7 = f64[] multiply(%subtract.141.9, %constant.67.2)
+  %constant.43.2 = f64[1]{0} constant({1})
+  %slice.157.12 = f64[1]{0} slice(%param_1.2415), slice={[256:257]}
+  %negate.28.5 = f64[1]{0} negate(%slice.157.12)
+  %exponential.16.5 = f64[1]{0} exponential(%negate.28.5)
+  %add.52.5 = f64[1]{0} add(%exponential.16.5, %constant.43.2)
+  %divide.6.3 = f64[1]{0} divide(%constant.43.2, %add.52.5)
+  %constant.51.5 = f64[1]{0} constant({31})
+  %multiply.73.3 = f64[1]{0} multiply(%divide.6.3, %constant.51.5)
+  %add.56.1 = f64[1]{0} add(%multiply.73.3, %constant.43.2)
+  %compare.52.5 = pred[1]{0} compare(%constant.43.2, %add.56.1), direction=LE
+  %constant.61.1 = f64[1]{0} constant({32})
+  %compare.53.1 = pred[1]{0} compare(%add.56.1, %constant.61.1), direction=LE
+  %and.1.5 = pred[1]{0} and(%compare.52.5, %compare.53.1)
+  %constant.62.1 = f64[1]{0} constant({0.081537179492968292})
+  %multiply.89.5 = f64[1]{0} multiply(%add.56.1, %constant.62.1)
+  %constant.144.1 = f64[1]{0} constant({0})
+  %compare.62.5 = pred[1]{0} compare(%multiply.89.5, %constant.144.1), direction=GT
+  %log-plus-one.0.1 = f64[1]{0} log-plus-one(%multiply.73.3)
+  %constant.63.1 = f64[1]{0} constant({-2.5066961726606172})
+  %add.60.7 = f64[1]{0} add(%log-plus-one.0.1, %constant.63.1)
+  %constant.145.1 = f64[1]{0} constant({-2})
+  %multiply.100.7 = f64[1]{0} multiply(%add.60.7, %constant.145.1)
+  %divide.14.9 = f64[1]{0} divide(%constant.43.2, %multiply.89.5)
+  %subtract.0.9 = f64[1]{0} subtract(%multiply.100.7, %divide.14.9)
+  %constant.156.1 = f64[1]{0} constant({-inf})
+  %select.9.7 = f64[1]{0} select(%compare.62.5, %subtract.0.9, %constant.156.1)
+  %add.64.7 = f64[1]{0} add(%select.9.7, %constant.63.1)
+  %select.13.5 = f64[1]{0} select(%and.1.5, %add.64.7, %constant.156.1)
+  %constant.168.1 = f64[1]{0} constant({0.38326766317151206})
+  %add.69.5 = f64[1]{0} add(%select.13.5, %constant.168.1)
+  %bitcast.71.7 = f64[] bitcast(%add.69.5)
+  %add.169.7 = f64[] add(%multiply.162.7, %bitcast.71.7)
+  %param_22.83 = f64[] parameter(22)
+  %param_31.82 = f64[1]{0} parameter(31)
+  %multiply.101.1 = f64[1]{0} multiply(%param_31.82, %param_31.82)
+  %bitcast.72.22 = f64[] bitcast(%multiply.101.1)
+  %log-plus-one.18.7 = f64[] log-plus-one(%bitcast.72.22)
+  %multiply.179.11 = f64[] multiply(%log-plus-one.18.7, %constant.82.1)
+  %add.181.11 = f64[] add(%param_22.83, %multiply.179.11)
+  %add.8.9 = f64[] add(%add.181.11, %constant.39.1)
+  %param_21.84 = f64[14]{0} parameter(21)
+  %reduce.13.13 = f64[] reduce(%param_21.84, %constant.116.15), dimensions={0}, to_apply=
+  (Arg_0.17: f64[], Arg_1.17: f64[]) -> f64[] {
+    %Arg_0.17 = f64[] parameter(0)
+    %Arg_1.17 = f64[] parameter(1)
+    ROOT %add.82.0 = f64[] add(%Arg_0.17, %Arg_1.17)
+  }
+  %param_20.84 = f64[14]{0} parameter(20)
+  %reduce.14.13 = f64[] reduce(%param_20.84, %constant.116.15), dimensions={0}, to_apply=
+  (Arg_0.18: f64[], Arg_1.18: f64[]) -> f64[] {
+    %Arg_0.18 = f64[] parameter(0)
+    %Arg_1.18 = f64[] parameter(1)
+    ROOT %add.83.0 = f64[] add(%Arg_0.18, %Arg_1.18)
+  }
+  %param_19.74 = f64[14]{0} parameter(19)
+  %reduce.15.13 = f64[] reduce(%param_19.74, %constant.116.15), dimensions={0}, to_apply=
+  (Arg_0.19: f64[], Arg_1.19: f64[]) -> f64[] {
+    %Arg_0.19 = f64[] parameter(0)
+    %Arg_1.19 = f64[] parameter(1)
+    ROOT %add.84.0 = f64[] add(%Arg_0.19, %Arg_1.19)
+  }
+  %param_18.82 = f64[14]{0} parameter(18)
+  %reduce.16.11 = f64[] reduce(%param_18.82, %constant.116.15), dimensions={0}, to_apply=
+  (Arg_0.20: f64[], Arg_1.20: f64[]) -> f64[] {
+    %Arg_0.20 = f64[] parameter(0)
+    %Arg_1.20 = f64[] parameter(1)
+    ROOT %add.85.0 = f64[] add(%Arg_0.20, %Arg_1.20)
+  }
+  %param_17.104 = f64[] parameter(17)
+  %add.171.11 = f64[] add(%reduce.16.11, %param_17.104)
+  %add.172.13 = f64[] add(%reduce.15.13, %add.171.11)
+  %add.173.13 = f64[] add(%reduce.14.13, %add.172.13)
+  %add.174.13 = f64[] add(%reduce.13.13, %add.173.13)
+  %add.170.11 = f64[] add(%bitcast.72.22, %constant.115.9)
+  %slice.158.402 = f64[256]{0} slice(%param_1.2415), slice={[257:513]}
+  %bitcast.73.399 = f64[16,16]{1,0} bitcast(%slice.158.402)
+  %slice.221.35 = f64[1,1]{1,0} slice(%bitcast.73.399), slice={[0:1], [0:1]}
+  %bitcast.90.32 = f64[] bitcast(%slice.221.35)
+  %multiply.171.17 = f64[] multiply(%add.170.11, %bitcast.90.32)
+  %slice.222.17 = f64[1,1]{1,0} slice(%bitcast.73.399), slice={[0:1], [1:2]}
+  %bitcast.91.15 = f64[] bitcast(%slice.222.17)
+  %subtract.159.15 = f64[] subtract(%multiply.171.17, %bitcast.91.15)
+  %slice.223.15 = f64[1,1]{1,0} slice(%bitcast.73.399), slice={[1:2], [0:1]}
+  %bitcast.92.13 = f64[] bitcast(%slice.223.15)
+  %subtract.160.13 = f64[] subtract(%subtract.159.15, %bitcast.92.13)
+  %multiply.172.15 = f64[] multiply(%subtract.160.13, %bitcast.90.32)
+  %add.175.13 = f64[] add(%add.174.13, %multiply.172.15)
+  %slice.224.33 = f64[1,1]{1,0} slice(%bitcast.73.399), slice={[0:1], [15:16]}
+  %bitcast.93.30 = f64[] bitcast(%slice.224.33)
+  %multiply.173.17 = f64[] multiply(%add.170.11, %bitcast.93.30)
+  %slice.225.17 = f64[1,1]{1,0} slice(%bitcast.73.399), slice={[0:1], [14:15]}
+  %bitcast.94.15 = f64[] bitcast(%slice.225.17)
+  %subtract.161.15 = f64[] subtract(%multiply.173.17, %bitcast.94.15)
+  %slice.226.15 = f64[1,1]{1,0} slice(%bitcast.73.399), slice={[1:2], [15:16]}
+  %bitcast.95.13 = f64[] bitcast(%slice.226.15)
+  %subtract.162.13 = f64[] subtract(%subtract.161.15, %bitcast.95.13)
+  %multiply.174.13 = f64[] multiply(%subtract.162.13, %bitcast.93.30)
+  %add.176.11 = f64[] add(%add.175.13, %multiply.174.13)
+  %slice.227.31 = f64[1,1]{1,0} slice(%bitcast.73.399), slice={[15:16], [0:1]}
+  %bitcast.96.28 = f64[] bitcast(%slice.227.31)
+  %multiply.175.15 = f64[] multiply(%add.170.11, %bitcast.96.28)
+  %slice.228.15 = f64[1,1]{1,0} slice(%bitcast.73.399), slice={[15:16], [1:2]}
+  %bitcast.97.13 = f64[] bitcast(%slice.228.15)
+  %subtract.163.13 = f64[] subtract(%multiply.175.15, %bitcast.97.13)
+  %slice.229.13 = f64[1,1]{1,0} slice(%bitcast.73.399), slice={[14:15], [0:1]}
+  %bitcast.98.11 = f64[] bitcast(%slice.229.13)
+  %subtract.164.11 = f64[] subtract(%subtract.163.13, %bitcast.98.11)
+  %multiply.176.13 = f64[] multiply(%subtract.164.11, %bitcast.96.28)
+  %add.177.11 = f64[] add(%add.176.11, %multiply.176.13)
+  %slice.230.29 = f64[1,1]{1,0} slice(%bitcast.73.399), slice={[15:16], [15:16]}
+  %bitcast.99.26 = f64[] bitcast(%slice.230.29)
+  %multiply.177.15 = f64[] multiply(%add.170.11, %bitcast.99.26)
+  %slice.231.15 = f64[1,1]{1,0} slice(%bitcast.73.399), slice={[15:16], [14:15]}
+  %bitcast.100.13 = f64[] bitcast(%slice.231.15)
+  %subtract.165.13 = f64[] subtract(%multiply.177.15, %bitcast.100.13)
+  %slice.232.13 = f64[1,1]{1,0} slice(%bitcast.73.399), slice={[14:15], [15:16]}
+  %bitcast.101.11 = f64[] bitcast(%slice.232.13)
+  %subtract.166.11 = f64[] subtract(%subtract.165.13, %bitcast.101.11)
+  %multiply.178.11 = f64[] multiply(%subtract.166.11, %bitcast.99.26)
+  %add.178.9 = f64[] add(%add.177.11, %multiply.178.11)
+  %add.179.9 = f64[] add(%bitcast.72.22, %constant.73.1)
+  %divide.19.7 = f64[] divide(%add.178.9, %add.179.9)
+  %subtract.168.9 = f64[] subtract(%add.8.9, %divide.19.7)
+  %multiply.180.7 = f64[] multiply(%subtract.168.9, %constant.67.2)
+  %slice.159.12 = f64[1]{0} slice(%param_1.2415), slice={[513:514]}
+  %negate.29.5 = f64[1]{0} negate(%slice.159.12)
+  %exponential.17.5 = f64[1]{0} exponential(%negate.29.5)
+  %add.53.5 = f64[1]{0} add(%exponential.17.5, %constant.43.2)
+  %divide.7.3 = f64[1]{0} divide(%constant.43.2, %add.53.5)
+  %multiply.74.3 = f64[1]{0} multiply(%divide.7.3, %constant.51.5)
+  %add.57.1 = f64[1]{0} add(%multiply.74.3, %constant.43.2)
+  %compare.54.
+E0000 00:00:1793638051.198213 1318435 config_assigner.cc:601] Could not get config for HLO: %loop_transpose_fusion = f64[274,10]{1,0} fusion(%constant.89.0, %constant.90.0, %constant.91.0, %constant.92.0, %constant.93.0, /*index=5*/%constant.94.0, %constant.95.0, %constant.96.0, %constant.97.0, %constant.98.0, /*index=10*/%constant.99.0, %constant.100.0, %constant.101.0, %Arg_8.1), kind=kLoop, calls=
+(param_0.729: f64[10], param_1.2380: f64[10], param_2.1820: f64[10], param_3.691: f64[10], param_4.793: f64[10], param_5.727: f64[10], param_6.509: f64[10], param_7.299: f64[10], param_8.253: f64[10], param_9.201: f64[10], param_10.158: f64[10], param_11.160: f64[10], param_12.192: f64[10], param_13.200: f64[274]) -> f64[274,10] {
+  %param_12.192 = f64[10]{0} parameter(12)
+  %broadcast.91.54 = f64[10,274]{1,0} broadcast(%param_12.192), dimensions={0}
+  %param_13.200 = f64[274]{0} parameter(13)
+  %constant.123.3 = f64[] constant(2)
+  %broadcast.69.10 = f64[274]{0} broadcast(%constant.123.3), dimensions={}
+  %multiply.229.5 = f64[274]{0} multiply(%param_13.200, %broadcast.69.10)
+  %constant.34.2 = f64[] constant(-1)
+  %broadcast.3.6 = f64[274]{0} broadcast(%constant.34.2), dimensions={}
+  %add.3.3 = f64[274]{0} add(%multiply.229.5, %broadcast.3.6)
+  %broadcast.92.200 = f64[10,274]{1,0} broadcast(%add.3.3), dimensions={1}
+  %multiply.230.29 = f64[10,274]{1,0} multiply(%broadcast.91.54, %broadcast.92.200)
+  %param_11.160 = f64[10]{0} parameter(11)
+  %broadcast.93.54 = f64[10,274]{1,0} broadcast(%param_11.160), dimensions={0}
+  %add.231.29 = f64[10,274]{1,0} add(%multiply.230.29, %broadcast.93.54)
+  %multiply.231.27 = f64[10,274]{1,0} multiply(%add.231.29, %broadcast.92.200)
+  %param_10.158 = f64[10]{0} parameter(10)
+  %broadcast.94.50 = f64[10,274]{1,0} broadcast(%param_10.158), dimensions={0}
+  %add.232.27 = f64[10,274]{1,0} add(%multiply.231.27, %broadcast.94.50)
+  %multiply.232.25 = f64[10,274]{1,0} multiply(%add.232.27, %broadcast.92.200)
+  %param_9.201 = f64[10]{0} parameter(9)
+  %broadcast.95.46 = f64[10,274]{1,0} broadcast(%param_9.201), dimensions={0}
+  %add.233.25 = f64[10,274]{1,0} add(%multiply.232.25, %broadcast.95.46)
+  %multiply.233.23 = f64[10,274]{1,0} multiply(%add.233.25, %broadcast.92.200)
+  %param_8.253 = f64[10]{0} parameter(8)
+  %broadcast.96.38 = f64[10,274]{1,0} broadcast(%param_8.253), dimensions={0}
+  %add.234.21 = f64[10,274]{1,0} add(%multiply.233.23, %broadcast.96.38)
+  %multiply.234.19 = f64[10,274]{1,0} multiply(%add.234.21, %broadcast.92.200)
+  %param_7.299 = f64[10]{0} parameter(7)
+  %broadcast.97.34 = f64[10,274]{1,0} broadcast(%param_7.299), dimensions={0}
+  %add.235.19 = f64[10,274]{1,0} add(%multiply.234.19, %broadcast.97.34)
+  %multiply.235.17 = f64[10,274]{1,0} multiply(%add.235.19, %broadcast.92.200)
+  %param_6.509 = f64[10]{0} parameter(6)
+  %broadcast.98.30 = f64[10,274]{1,0} broadcast(%param_6.509), dimensions={0}
+  %add.236.17 = f64[10,274]{1,0} add(%multiply.235.17, %broadcast.98.30)
+  %multiply.236.15 = f64[10,274]{1,0} multiply(%add.236.17, %broadcast.92.200)
+  %param_5.727 = f64[10]{0} parameter(5)
+  %broadcast.99.26 = f64[10,274]{1,0} broadcast(%param_5.727), dimensions={0}
+  %add.237.15 = f64[10,274]{1,0} add(%multiply.236.15, %broadcast.99.26)
+  %multiply.237.13 = f64[10,274]{1,0} multiply(%add.237.15, %broadcast.92.200)
+  %param_4.793 = f64[10]{0} parameter(4)
+  %broadcast.100.22 = f64[10,274]{1,0} broadcast(%param_4.793), dimensions={0}
+  %add.238.13 = f64[10,274]{1,0} add(%multiply.237.13, %broadcast.100.22)
+  %multiply.238.11 = f64[10,274]{1,0} multiply(%add.238.13, %broadcast.92.200)
+  %param_3.691 = f64[10]{0} parameter(3)
+  %broadcast.101.18 = f64[10,274]{1,0} broadcast(%param_3.691), dimensions={0}
+  %add.239.11 = f64[10,274]{1,0} add(%multiply.238.11, %broadcast.101.18)
+  %multiply.239.9 = f64[10,274]{1,0} multiply(%add.239.11, %broadcast.92.200)
+  %param_2.1820 = f64[10]{0} parameter(2)
+  %broadcast.102.14 = f64[10,274]{1,0} broadcast(%param_2.1820), dimensions={0}
+  %add.240.9 = f64[10,274]{1,0} add(%multiply.239.9, %broadcast.102.14)
+  %multiply.240.7 = f64[10,274]{1,0} multiply(%add.240.9, %broadcast.92.200)
+  %param_1.2380 = f64[10]{0} parameter(1)
+  %broadcast.103.10 = f64[10,274]{1,0} broadcast(%param_1.2380), dimensions={0}
+  %add.241.7 = f64[10,274]{1,0} add(%multiply.240.7, %broadcast.103.10)
+  %multiply.241.5 = f64[10,274]{1,0} multiply(%add.241.7, %broadcast.92.200)
+  %param_0.729 = f64[10]{0} parameter(0)
+  %broadcast.104.4 = f64[10,274]{1,0} broadcast(%param_0.729), dimensions={0}
+  %add.242.3 = f64[10,274]{1,0} add(%multiply.241.5, %broadcast.104.4)
+  ROOT %transpose.49.1 = f64[274,10]{1,0} transpose(%add.242.3), dimensions={1,0}
+}. Status: NOT_FOUND: All configs failed during profiling or were excluded from selection.
+Failures (2):
+REDZONE CHECK FAILED: INTERNAL: Failed call to hipGetFuncBySymbol: hipError_t(98)
+REDZONE CHECK FAILED: INTERNAL: Failed call to hipGetFuncBySymbol: hipError_t(98)
+=== Source Location Trace: ===
+external/xla/xla/backends/autotuner/config_selector.cc:88
+external/xla/xla/backends/autotuner/autotuner.cc:249
+
+E0000 00:00:1793638051.198325 1318435 config_assigner.cc:601] Could not get config for HLO: %input_reduce_fusion.1 = f64[] fusion(%constant.83.0, %loop_divide_fusion), kind=kInput, calls=
+(param_0.1993: f64[16,16], param_1.2404: f64[1]) -> f64[] {
+  %param_1.2404 = f64[1]{0} parameter(1)
+  %multiply.105.19 = f64[1]{0} multiply(%param_1.2404, %param_1.2404)
+  %bitcast.134.32 = f64[] bitcast(%multiply.105.19)
+  %broadcast.86.7 = f64[16,16]{1,0} broadcast(%bitcast.134.32), dimensions={}
+  %param_0.1993 = f64[16,16]{1,0} parameter(0)
+  %add.212.5 = f64[16,16]{1,0} add(%broadcast.86.7, %param_0.1993)
+  %log.7.3 = f64[16,16]{1,0} log(%add.212.5)
+  %bitcast.268.1 = f64[256]{0} bitcast(%log.7.3)
+  %constant.116.13 = f64[] constant(0)
+  ROOT %reduce.8.1 = f64[] reduce(%bitcast.268.1, %constant.116.13), dimensions={0}, to_apply=
+  (Arg_0.5: f64[], Arg_1.5: f64[]) -> f64[] {
+    %Arg_0.5 = f64[] parameter(0)
+    %Arg_1.5 = f64[] parameter(1)
+    ROOT %add.76.0 = f64[] add(%Arg_0.5, %Arg_1.5)
+  }
+}. Status: NOT_FOUND: All configs failed during profiling or were excluded from selection.
+Failures (2):
+REDZONE CHECK FAILED: INTERNAL: Failed call to hipGetFuncBySymbol: hipError_t(98)
+REDZONE CHECK FAILED: INTERNAL: Failed call to hipGetFuncBySymbol: hipError_t(98)
+=== Source Location Trace: ===
+external/xla/xla/backends/autotuner/config_selector.cc:88
+external/xla/xla/backends/autotuner/autotuner.cc:249
+
+E0000 00:00:1793638051.198348 1318435 config_assigner.cc:601] Could not get config for HLO: %input_reduce_fusion.9 = f64[] fusion(%Arg_26.1), kind=kInput, calls=
+(param_0.1985: f64[1256]) -> f64[] {
+  %param_0.1985 = f64[1256]{0} parameter(0)
+  %slice.165.8 = f64[126]{0} slice(%param_0.1985), slice={[1029:1155]}
+  %multiply.23.3 = f64[126]{0} multiply(%slice.165.8, %slice.165.8)
+  %constant.116.4 = f64[] constant(0)
+  ROOT %reduce.28.1 = f64[] reduce(%multiply.23.3, %constant.116.4), dimensions={0}, to_apply=
+  (Arg_0.29: f64[], Arg_1.29: f64[]) -> f64[] {
+    %Arg_0.29 = f64[] parameter(0)
+    %Arg_1.29 = f64[] parameter(1)
+    ROOT %add.95.0 = f64[] add(%Arg_0.29, %Arg_1.29)
+  }
+}. Status: NOT_FOUND: All configs failed during profiling or were excluded from selection.
+Failures (2):
+REDZONE CHECK FAILED: INTERNAL: Failed call to hipGetFuncBySymbol: hipError_t(98)
+REDZONE CHECK FAILED: INTERNAL: Failed call to hipGetFuncBySymbol: hipError_t(98)
+=== Source Location Trace: ===
+external/xla/xla/backends/autotuner/config_selector.cc:88
+external/xla/xla/backends/autotuner/autotuner.cc:249
+
+E0000 00:00:1793638051.198361 1318435 config_assigner.cc:601] Could not get config for HLO: %input_reduce_fusion.8 = f64[4]{0} fusion(%input_concatenate_fusion), kind=kInput, calls=
+(param_0.1987: f64[4,16,16]) -> f64[4] {
+  %param_0.1987 = f64[4,16,16]{2,1,0} parameter(0)
+  %bitcast.261.1 = f64[4,256]{1,0} bitcast(%param_0.1987)
+  %constant.116.6 = f64[] constant(0)
+  ROOT %reduce.9.1 = f64[4]{0} reduce(%bitcast.261.1, %constant.116.6), dimensions={1}, to_apply=
+  (Arg_0.6: f64[], Arg_1.6: f64[]) -> f64[] {
+    %Arg_0.6 = f64[] parameter(0)
+    %Arg_1.6 = f64[] parameter(1)
+    ROOT %add.32.0 = f64[] add(%Arg_0.6, %Arg_1.6)
+  }
+}. Status: NOT_FOUND: All configs failed during profiling or were excluded from selection.
+Failures (2):
+REDZONE CHECK FAILED: INTERNAL: Failed call to hipGetFuncBySymbol: hipError_t(98)
+REDZONE CHECK FAILED: INTERNAL: Failed call to hipGetFuncBySymbol: hipError_t(98)
+=== Source Location Trace: ===
+external/xla/xla/backends/autotuner/config_selector.cc:88
+external/xla/xla/backends/autotuner/autotuner.cc:249
+
+┌ Error: Compilation failed, MLIR module written to /tmp/reactant_ev9A27/module_000_reactant_logdens..._post_xla_compile.mlir
+└ @ Reactant.MLIR.IR ~/.julia/packages/Reactant/1C1cP/src/mlir/IR/Pass.jl:146
+ERROR: LoadError: NOT_FOUND: Failed to get configs for: 6 out of 25 instructions. See logs for all failures. Example failure: 
+All configs failed during profiling or were excluded from selection.
+Failures (2):
+REDZONE CHECK FAILED: INTERNAL: Failed call to hipGetFuncBySymbol: hipError_t(98)
+REDZONE CHECK FAILED: INTERNAL: Failed call to hipGetFuncBySymbol: hipError_t(98)
+
+Stacktrace:
+  [1] reactant_err(msg::Cstring)
+    @ Reactant.XLA ~/.julia/packages/Reactant/1C1cP/src/xla/Utils.jl:14
+  [2] ifrt_compile_with_proto
+    @ ~/.julia/packages/Reactant/1C1cP/src/mlir/libMLIR_h.jl:17941 [inlined]
+  [3] #34
+    @ ~/.julia/packages/Reactant/1C1cP/src/xla/IFRT/LoadedExecutable.jl:79 [inlined]
+  [4] try_compile_dump_mlir(f::Reactant.XLA.IFRT.var"#34#35"{Reactant.XLA.IFRT.Client, Reactant.MLIR.IR.Module, Vector{UInt8}}, mod::Reactant.MLIR.IR.Module, pm::Nothing)
+    @ Reactant.MLIR.IR ~/.julia/packages/Reactant/1C1cP/src/mlir/IR/Pass.jl:164
+  [5] try_compile_dump_mlir
+    @ ~/.julia/packages/Reactant/1C1cP/src/mlir/IR/Pass.jl:159 [inlined]
+  [6] compile(client::Reactant.XLA.IFRT.Client, mod::Reactant.MLIR.IR.Module; compile_options::Reactant.Proto.xla.CompileOptionsProto, num_parameters::Int64, num_outputs::Int64, is_sharded::Bool, num_replicas::Int64, num_partitions::Int64)
+    @ Reactant.XLA.IFRT ~/.julia/packages/Reactant/1C1cP/src/xla/IFRT/LoadedExecutable.jl:78
+  [7] compile
+    @ ~/.julia/packages/Reactant/1C1cP/src/xla/IFRT/LoadedExecutable.jl:66 [inlined]
+  [8] macro expansion
+    @ ~/.julia/packages/Reactant/1C1cP/src/compiler/Compiler.jl:1337 [inlined]
+  [9] macro expansion
+    @ ~/.julia/packages/Reactant/1C1cP/lib/ReactantCore/src/ReactantCore.jl:175 [inlined]
+ [10] macro expansion
+    @ ~/.julia/packages/Reactant/1C1cP/src/compiler/Compiler.jl:1336 [inlined]
+ [11] compile_xla(ctx::Reactant.MLIR.IR.Context, f::Function, args::Tuple{Comrade.TransformedVLBIPosterior{VLBIPosterior{Tuple{VisTable{IPol, ComradeBase.StructuredMap{ComplexF64, 2, Tuple{Node{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Fr{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, StructuredDomain{Tuple{Node{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Fr{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, @NamedTuple{u::Vector{Float64}, v::Vector{Float64}, Ti::Vector{Float64}, ts::Vector{Int64}, ant1::Vector{Int64}, ant2::Vector{Int64}}, @NamedTuple{u::Tuple{Symbol}, v::Tuple{Symbol}, Ti::Tuple{Symbol}, ts::Tuple{Symbol}, ant1::Tuple{Symbol}, ant2::Tuple{Symbol}}, Serial, ArrayInfo{StructArrays.StructVector{@NamedTuple{name::Symbol, position::StaticArraysCore.SVector{3, Float64}, mount::Mount{Float64, Float64, Float64, Tuple{Float64, Float64, Float64}}, feeds::Tuple{RPol, LPol}, feed_angles::Tuple{Float64, Float64}}, @NamedTuple{name::Vector{Symbol}, position::Vector{StaticArraysCore.SVector{3, Float64}}, mount::Vector{Mount{Float64, Float64, Float64, Tuple{Float64, Float64, Float64}}}, feeds::Vector{Tuple{RPol, LPol}}, feed_angles::Vector{Tuple{Float64, Float64}}}, Int64}, StructArrays.StructVector{@NamedTuple{frequency::Float64, width::Float64}, @NamedTuple{frequency::Vector{Float64}, width::Vector{Float64}}, Int64}, StructArrays.StructVector{@NamedTuple{start::Float64, stop::Float64}, @NamedTuple{start::Vector{Float64}, stop::Vector{Float64}}, Int64}, StructArrays.StructVector{@NamedTuple{start::Float64, stop::Float64}, @NamedTuple{start::Vector{Float64}, stop::Vector{Float64}}, Int64}}}, Matrix{ComplexF64}, Tuple{}, Symbol}, ComradeBase.StructuredMap{Float64, 2, Tuple{Node{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Fr{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, StructuredDomain{Tuple{Node{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Fr{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, @NamedTuple{u::Vector{Float64}, v::Vector{Float64}, Ti::Vector{Float64}, ts::Vector{Int64}, ant1::Vector{Int64}, ant2::Vector{Int64}}, @NamedTuple{u::Tuple{Symbol}, v::Tuple{Symbol}, Ti::Tuple{Symbol}, ts::Tuple{Symbol}, ant1::Tuple{Symbol}, ant2::Tuple{Symbol}}, Serial, ArrayInfo{StructArrays.StructVector{@NamedTuple{name::Symbol, position::StaticArraysCore.SVector{3, Float64}, mount::Mount{Float64, Float64, Float64, Tuple{Float64, Float64, Float64}}, feeds::Tuple{RPol, LPol}, feed_angles::Tuple{Float64, Float64}}, @NamedTuple{name::Vector{Symbol}, position::Vector{StaticArraysCore.SVector{3, Float64}}, mount::Vector{Mount{Float64, Float64, Float64, Tuple{Float64, Float64, Float64}}}, feeds::Vector{Tuple{RPol, LPol}}, feed_angles::Vector{Tuple{Float64, Float64}}}, Int64}, StructArrays.StructVector{@NamedTuple{frequency::Float64, width::Float64}, @NamedTuple{frequency::Vector{Float64}, width::Vector{Float64}}, Int64}, StructArrays.StructVector{@NamedTuple{start::Float64, stop::Float64}, @NamedTuple{start::Vector{Float64}, stop::Vector{Float64}}, Int64}, StructArrays.StructVector{@NamedTuple{start::Float64, stop::Float64}, @NamedTuple{start::Vector{Float64}, stop::Vector{Float64}}, Int64}}}, Matrix{Float64}, Tuple{}, Symbol}, DimStack{(:elevation, :parallactic, :azimuth), @NamedTuple{elevation::Float64, parallactic::Float64, azimuth::Float64}, 2, @NamedTuple{elevation::Matrix{Float64}, parallactic::Matrix{Float64}, azimuth::Matrix{Float64}}, Tuple{Ant{DimensionalData.Dimensions.Lookups.Categorical{Symbol, Vector{Symbol}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.NoMetadata}}, Ti{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, Tuple{}, Tuple{Tuple{Ant{Colon}, Ti{Colon}}, Tuple{Ant{Colon}, Ti{Colon}}, Tuple{Ant{Colon}, Ti{Colon}}}, DimensionalData.Dimensions.Lookups.NoMetadata, Tuple{DimensionalData.Dimensions.Lookups.NoMetadata, DimensionalData.Dimensions.Lookups.NoMetadata, DimensionalData.Dimensions.Lookups.NoMetadata}}}}, Nothing, Tuple{Comrade.ConditionedLikelihood{Comrade._Visibility{ConcreteIFRTArray{Float64, 2, Nothing}, Float64}, ConcreteIFRTArray{ComplexF64, 2, Nothing}}}, Tuple{}, NamedDist{(:sky, :instrument), Tuple{NamedDist{(:c, :σimg), Tuple{TupleDist{4, NTuple{4, HierarchicalPrior{ConditionalMarkov{GaussMarkovRandomField, MarkovRandomFieldGraph{1, SparseArrays.SparseMatrixCSC{Float64, Int64}, Diagonal{Float64, Vector{Float64}}, Matrix{Float64}, Serial}}, ProbabilityTransports.Truncated{PushforwardDistribution{ProbabilityTransports.ScaleShift{Float64, Float64}, StdInverseGamma{Float64, Float64, 0, Float64}, 0, Float64}, Float64, Int64, Float64}}}}, PushforwardDistribution{ProbabilityTransports.ScaleShift{Float64, Float64}, StdExponential{Float64, 0}, 0, Float64}}}, NamedDist{(:lg, :gp), Tuple{VLBIInstrumentModels.ObservedArrayPrior{PushforwardDistribution{ProbabilityTransports.ScaleShift{Vector{Float64}, Vector{Float64}}, StdNormal{Float64, 1}, 1, Float64}, VLBIInstrumentModels.SiteLookup{@NamedTuple{AA::Vector{Int64}, AP::Vector{Int64}, AZ::Vector{Int64}, JC::Vector{Int64}, LM::Vector{Int64}, PV::Vector{Int64}, SM::Vector{Int64}}, 1, Vector{VLBIInstrumentModels.IntegrationTime{Int64, Float64}}, Vector{VLBIInstrumentModels.FrequencyChannel{Float64, Int64}}, Vector{Symbol}}}, VLBIInstrumentModels.ObservedArrayPrior{VLBIInstrumentModels.PartiallyConditionedDist{PushforwardDistribution{ProbabilityTransports.ScaleShift{Vector{Float64}, Vector{Float64}}, StdNormal{Float64, 1}, 1, Float64}, Vector{Int64}, Vector{Float64}}, VLBIInstrumentModels.SiteLookup{@NamedTuple{AA::Vector{Int64}, AP::Vector{Int64}, AZ::Vector{Int64}, JC::Vector{Int64}, LM::Vector{Int64}, PV::Vector{Int64}, SM::Vector{Int64}}, 1, Vector{VLBIInstrumentModels.IntegrationTime{Int64, Float64}}, Vector{VLBIInstrumentModels.FrequencyChannel{Float64, Int64}}, Vector{Symbol}}}}}}}, Comrade.ObservedSkyModel{typeof(movie_sky), FourierDualDomain{RectiGrid{Tuple{X{DimensionalData.Dimensions.Lookups.Sampled{Float64, LinRange{Float64, Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Float64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Y{DimensionalData.Dimensions.Lookups.Sampled{Float64, LinRange{Float64, Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Float64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Ti{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Explicit{Matrix{Float64}}, DimensionalData.Dimensions.Lookups.Intervals{DimensionalData.Dimensions.Lookups.Center}, DimensionalData.Dimensions.Lookups.NoMetadata}}}, Serial, DimensionalData.Dimensions.Lookups.NoMetadata, Float64}, StructuredDomain{Tuple{Node{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Fr{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, @NamedTuple{U::ConcreteIFRTArray{Float64, 2, Nothing}, V::ConcreteIFRTArray{Float64, 2, Nothing}, Ti::ConcreteIFRTArray{Float64, 1, Nothing}}, @NamedTuple{U::Tuple{Symbol, Symbol}, V::Tuple{Symbol, Symbol}, Ti::Tuple{Symbol}}, ReactantEx{Nothing}, ArrayInfo{StructArrays.StructVector{@NamedTuple{name::Symbol, position::StaticArraysCore.SVector{3, Float64}, mount::Mount{Float64, Float64, Float64, Tuple{Float64, Float64, Float64}}, feeds::Tuple{RPol, LPol}, feed_angles::Tuple{Float64, Float64}}, @NamedTuple{name::Vector{Symbol}, position::Vector{StaticArraysCore.SVector{3, Float64}}, mount::Vector{Mount{Float64, Float64, Float64, Tuple{Float64, Float64, Float64}}}, feeds::Vector{Tuple{RPol, LPol}}, feed_angles::Vector{Tuple{Float64, Float64}}}, Int64}, StructArrays.StructVector{@NamedTuple{frequency::Float64, width::Float64}, @NamedTuple{frequency::Vector{Float64}, width::Vector{Float64}}, Int64}, StructArrays.StructVector{@NamedTuple{start::Float64, stop::Float64}, @NamedTuple{start::Vector{Float64}, stop::Vector{Float64}}, Int64}, StructArrays.StructVector{@NamedTuple{start::Float64, stop::Float64}, @NamedTuple{start::Vector{Float64}, stop::Vector{Float64}}, Int64}}}, ReactantNUFFTAlg{Float64, Tuple{}}, VLBISkyModels.NUFTPlan{ReactantNUFFTAlg{Float64, Tuple{}}, VLBISkyModelsReactantExt.PlaneStack{VLBISkyModelsReactantExt.NUFFTSetPts{Float64, 2, VLBISkyModelsReactantExt.NUFFTPlan{Float64, 2, 2, Matrix{Float64}, Vector{Float64}}, ConcreteIFRTArray{Int64, 1, Nothing}, Tuple{ConcreteIFRTArray{Int64, 1, Nothing}, ConcreteIFRTArray{Int64, 1, Nothing}}, Tuple{ConcreteIFRTArray{Float64, 1, Nothing}, ConcreteIFRTArray{Float64, 1, Nothing}}}, ConcreteIFRTArray{Int64, 2, Nothing}, Tuple{}}, ConcreteIFRTArray{ComplexF64, 1, Nothing}, Tuple{Vector{CartesianIndex{1}}, Vector{UnitRange{Int64}}}, Tuple{Int64, Int64}}, VLBISkyModels.NUFTPlan{ReactantNUFFTAlg{Float64, Tuple{}}, VLBISkyModelsReactantExt.PlaneStack{VLBISkyModelsReactantExt.NUFFTSetPts{Float64, 2, VLBISkyModelsReactantExt.NUFFTPlan{Float64, 2, 2, Matrix{Float64}, Vector{Float64}}, ConcreteIFRTArray{Int64, 1, Nothing}, Tuple{ConcreteIFRTArray{Int64, 1, Nothing}, ConcreteIFRTArray{Int64, 1, Nothing}}, Tuple{ConcreteIFRTArray{Float64, 1, Nothing}, ConcreteIFRTArray{Float64, 1, Nothing}}}, ConcreteIFRTArray{Int64, 2, Nothing}, Tuple{}}, ConcreteIFRTArray{ComplexF64, 1, Nothing}, Tuple{Vector{CartesianIndex{1}}, Vector{UnitRange{Int64}}}, Tuple{Int64, Int64}}}, @NamedTuple{logmean::ConcreteIFRTArray{Float64, 3, Nothing}, ftot::Float64}}, VLBIInstrumentModels.ObservedInstrumentModel{Jones{var"#9#10", @NamedTuple{}}, CirBasis, VLBIInstrumentModels.CellLayout{StructArrays.StructVector{@NamedTuple{ant::Int64, Ti::Float64, Fr::Float64, elevation::Float64, parallactic::Float64, azimuth::Float64, ra::Float64, dec::Float64}, @NamedTuple{ant::ConcreteIFRTArray{Int64, 1, Nothing}, Ti::ConcreteIFRTArray{Float64, 1, Nothing}, Fr::ConcreteIFRTArray{Float64, 1, Nothing}, elevation::ConcreteIFRTArray{Float64, 1, Nothing}, parallactic::ConcreteIFRTArray{Float64, 1, Nothing}, azimuth::ConcreteIFRTArray{Float64, 1, Nothing}, ra::ConcreteIFRTArray{Float64, 1, Nothing}, dec::ConcreteIFRTArray{Float64, 1, Nothing}}, CartesianIndex{1}}, ConcreteIFRTArray{Int64, 2, Nothing}, @NamedTuple{lg::ConcreteIFRTArray{Int64, 1, Nothing}, gp::ConcreteIFRTArray{Int64, 1, Nothing}}, Nothing, Tuple{Node{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Fr{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}}, IPol, false}, Nothing}, TransportedDistribution{TransformVariables.TransformTuple{@NamedTuple{sky::TransformVariables.TransformTuple{@NamedTuple{c::TransformVariables.TransformTuple{NTuple{4, TransformVariables.TransformTuple{@NamedTuple{params::TransformVariables.ArrayTransformation{TransformVariables.Identity, 2}, hyperparams::TransformVariables.CompositeScalarTransform{Tuple{TransformVariables.TVShift{Float64}, TransformVariables.TVScale{Float64}, TransformVariables.TVLogistic}}}}}}, σimg::TransformVariables.CompositeScalarTransform{Tuple{TransformVariables.TVShift{Int64}, TransformVariables.TVExp}}}}, instrument::TransformVariables.TransformTuple{@NamedTuple{lg::VLBIInstrumentModels.InstrumentTransform{TransformVariables.ArrayTransformation{TransformVariables.Identity, 1}, VLBIInstrumentModels.SiteLookup{@NamedTuple{AA::Vector{Int64}, AP::Vector{Int64}, AZ::Vector{Int64}, JC::Vector{Int64}, LM::Vector{Int64}, PV::Vector{Int64}, SM::Vector{Int64}}, 1, Vector{VLBIInstrumentModels.IntegrationTime{Int64, Float64}}, Vector{VLBIInstrumentModels.FrequencyChannel{Float64, Int64}}, Vector{Symbol}}}, gp::VLBIInstrumentModels.InstrumentTransform{VLBIInstrumentModels.PartiallyFixedTransform{TransformVariables.ArrayTransformation{TransformVariables.Identity, 1}, Vector{Int64}, Vector{Float64}}, VLBIInstrumentModels.SiteLookup{@NamedTuple{AA::Vector{Int64}, AP::Vector{Int64}, AZ::Vector{Int64}, JC::Vector{Int64}, LM::Vector{Int64}, PV::Vector{Int64}, SM::Vector{Int64}}, 1, Vector{VLBIInstrumentModels.IntegrationTime{Int64, Float64}}, Vector{VLBIInstrumentModels.FrequencyChannel{Float64, Int64}}, Vector{Symbol}}}}}}}, NamedDist{(:sky, :instrument), Tuple{NamedDist{(:c, :σimg), Tuple{TupleDist{4, NTuple{4, HierarchicalPrior{ConditionalMarkov{GaussMarkovRandomField, MarkovRandomFieldGraph{1, SparseArrays.SparseMatrixCSC{Float64, Int64}, Diagonal{Float64, Vector{Float64}}, Matrix{Float64}, Serial}}, ProbabilityTransports.Truncated{PushforwardDistribution{ProbabilityTransports.ScaleShift{Float64, Float64}, StdInverseGamma{Float64, Float64, 0, Float64}, 0, Float64}, Float64, Int64, Float64}}}}, PushforwardDistribution{ProbabilityTransports.ScaleShift{Float64, Float64}, StdExponential{Float64, 0}, 0, Float64}}}, NamedDist{(:lg, :gp), Tuple{VLBIInstrumentModels.ObservedArrayPrior{PushforwardDistribution{ProbabilityTransports.ScaleShift{Vector{Float64}, Vector{Float64}}, StdNormal{Float64, 1}, 1, Float64}, VLBIInstrumentModels.SiteLookup{@NamedTuple{AA::Vector{Int64}, AP::Vector{Int64}, AZ::Vector{Int64}, JC::Vector{Int64}, LM::Vector{Int64}, PV::Vector{Int64}, SM::Vector{Int64}}, 1, Vector{VLBIInstrumentModels.IntegrationTime{Int64, Float64}}, Vector{VLBIInstrumentModels.FrequencyChannel{Float64, Int64}}, Vector{Symbol}}}, VLBIInstrumentModels.ObservedArrayPrior{VLBIInstrumentModels.PartiallyConditionedDist{PushforwardDistribution{ProbabilityTransports.ScaleShift{Vector{Float64}, Vector{Float64}}, StdNormal{Float64, 1}, 1, Float64}, Vector{Int64}, Vector{Float64}}, VLBIInstrumentModels.SiteLookup{@NamedTuple{AA::Vector{Int64}, AP::Vector{Int64}, AZ::Vector{Int64}, JC::Vector{Int64}, LM::Vector{Int64}, PV::Vector{Int64}, SM::Vector{Int64}}, 1, Vector{VLBIInstrumentModels.IntegrationTime{Int64, Float64}}, Vector{VLBIInstrumentModels.FrequencyChannel{Float64, Int64}}, Vector{Symbol}}}}}}}, Nothing, Multivariate}}, ConcreteIFRTArray{Float64, 1, Nothing}}; before_xla_optimizations::Bool, client::Nothing, serializable::Bool, kwargs::@Kwargs{compile_options::CompileOptions, fn_kwargs::@NamedTuple{}})
+    @ Reactant.Compiler ~/.julia/packages/Reactant/1C1cP/lib/ReactantCore/src/ReactantCore.jl:175
+ [12] compile_xla
+    @ ~/.julia/packages/Reactant/1C1cP/lib/ReactantCore/src/ReactantCore.jl:173 [inlined]
+ [13] compile(ctx::Reactant.MLIR.IR.Context, f::Function, args::Tuple{Comrade.TransformedVLBIPosterior{VLBIPosterior{Tuple{VisTable{IPol, ComradeBase.StructuredMap{ComplexF64, 2, Tuple{Node{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Fr{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, StructuredDomain{Tuple{Node{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Fr{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, @NamedTuple{u::Vector{Float64}, v::Vector{Float64}, Ti::Vector{Float64}, ts::Vector{Int64}, ant1::Vector{Int64}, ant2::Vector{Int64}}, @NamedTuple{u::Tuple{Symbol}, v::Tuple{Symbol}, Ti::Tuple{Symbol}, ts::Tuple{Symbol}, ant1::Tuple{Symbol}, ant2::Tuple{Symbol}}, Serial, ArrayInfo{StructArrays.StructVector{@NamedTuple{name::Symbol, position::StaticArraysCore.SVector{3, Float64}, mount::Mount{Float64, Float64, Float64, Tuple{Float64, Float64, Float64}}, feeds::Tuple{RPol, LPol}, feed_angles::Tuple{Float64, Float64}}, @NamedTuple{name::Vector{Symbol}, position::Vector{StaticArraysCore.SVector{3, Float64}}, mount::Vector{Mount{Float64, Float64, Float64, Tuple{Float64, Float64, Float64}}}, feeds::Vector{Tuple{RPol, LPol}}, feed_angles::Vector{Tuple{Float64, Float64}}}, Int64}, StructArrays.StructVector{@NamedTuple{frequency::Float64, width::Float64}, @NamedTuple{frequency::Vector{Float64}, width::Vector{Float64}}, Int64}, StructArrays.StructVector{@NamedTuple{start::Float64, stop::Float64}, @NamedTuple{start::Vector{Float64}, stop::Vector{Float64}}, Int64}, StructArrays.StructVector{@NamedTuple{start::Float64, stop::Float64}, @NamedTuple{start::Vector{Float64}, stop::Vector{Float64}}, Int64}}}, Matrix{ComplexF64}, Tuple{}, Symbol}, ComradeBase.StructuredMap{Float64, 2, Tuple{Node{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Fr{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, StructuredDomain{Tuple{Node{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Fr{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, @NamedTuple{u::Vector{Float64}, v::Vector{Float64}, Ti::Vector{Float64}, ts::Vector{Int64}, ant1::Vector{Int64}, ant2::Vector{Int64}}, @NamedTuple{u::Tuple{Symbol}, v::Tuple{Symbol}, Ti::Tuple{Symbol}, ts::Tuple{Symbol}, ant1::Tuple{Symbol}, ant2::Tuple{Symbol}}, Serial, ArrayInfo{StructArrays.StructVector{@NamedTuple{name::Symbol, position::StaticArraysCore.SVector{3, Float64}, mount::Mount{Float64, Float64, Float64, Tuple{Float64, Float64, Float64}}, feeds::Tuple{RPol, LPol}, feed_angles::Tuple{Float64, Float64}}, @NamedTuple{name::Vector{Symbol}, position::Vector{StaticArraysCore.SVector{3, Float64}}, mount::Vector{Mount{Float64, Float64, Float64, Tuple{Float64, Float64, Float64}}}, feeds::Vector{Tuple{RPol, LPol}}, feed_angles::Vector{Tuple{Float64, Float64}}}, Int64}, StructArrays.StructVector{@NamedTuple{frequency::Float64, width::Float64}, @NamedTuple{frequency::Vector{Float64}, width::Vector{Float64}}, Int64}, StructArrays.StructVector{@NamedTuple{start::Float64, stop::Float64}, @NamedTuple{start::Vector{Float64}, stop::Vector{Float64}}, Int64}, StructArrays.StructVector{@NamedTuple{start::Float64, stop::Float64}, @NamedTuple{start::Vector{Float64}, stop::Vector{Float64}}, Int64}}}, Matrix{Float64}, Tuple{}, Symbol}, DimStack{(:elevation, :parallactic, :azimuth), @NamedTuple{elevation::Float64, parallactic::Float64, azimuth::Float64}, 2, @NamedTuple{elevation::Matrix{Float64}, parallactic::Matrix{Float64}, azimuth::Matrix{Float64}}, Tuple{Ant{DimensionalData.Dimensions.Lookups.Categorical{Symbol, Vector{Symbol}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.NoMetadata}}, Ti{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, Tuple{}, Tuple{Tuple{Ant{Colon}, Ti{Colon}}, Tuple{Ant{Colon}, Ti{Colon}}, Tuple{Ant{Colon}, Ti{Colon}}}, DimensionalData.Dimensions.Lookups.NoMetadata, Tuple{DimensionalData.Dimensions.Lookups.NoMetadata, DimensionalData.Dimensions.Lookups.NoMetadata, DimensionalData.Dimensions.Lookups.NoMetadata}}}}, Nothing, Tuple{Comrade.ConditionedLikelihood{Comrade._Visibility{ConcreteIFRTArray{Float64, 2, Nothing}, Float64}, ConcreteIFRTArray{ComplexF64, 2, Nothing}}}, Tuple{}, NamedDist{(:sky, :instrument), Tuple{NamedDist{(:c, :σimg), Tuple{TupleDist{4, NTuple{4, HierarchicalPrior{ConditionalMarkov{GaussMarkovRandomField, MarkovRandomFieldGraph{1, SparseArrays.SparseMatrixCSC{Float64, Int64}, Diagonal{Float64, Vector{Float64}}, Matrix{Float64}, Serial}}, ProbabilityTransports.Truncated{PushforwardDistribution{ProbabilityTransports.ScaleShift{Float64, Float64}, StdInverseGamma{Float64, Float64, 0, Float64}, 0, Float64}, Float64, Int64, Float64}}}}, PushforwardDistribution{ProbabilityTransports.ScaleShift{Float64, Float64}, StdExponential{Float64, 0}, 0, Float64}}}, NamedDist{(:lg, :gp), Tuple{VLBIInstrumentModels.ObservedArrayPrior{PushforwardDistribution{ProbabilityTransports.ScaleShift{Vector{Float64}, Vector{Float64}}, StdNormal{Float64, 1}, 1, Float64}, VLBIInstrumentModels.SiteLookup{@NamedTuple{AA::Vector{Int64}, AP::Vector{Int64}, AZ::Vector{Int64}, JC::Vector{Int64}, LM::Vector{Int64}, PV::Vector{Int64}, SM::Vector{Int64}}, 1, Vector{VLBIInstrumentModels.IntegrationTime{Int64, Float64}}, Vector{VLBIInstrumentModels.FrequencyChannel{Float64, Int64}}, Vector{Symbol}}}, VLBIInstrumentModels.ObservedArrayPrior{VLBIInstrumentModels.PartiallyConditionedDist{PushforwardDistribution{ProbabilityTransports.ScaleShift{Vector{Float64}, Vector{Float64}}, StdNormal{Float64, 1}, 1, Float64}, Vector{Int64}, Vector{Float64}}, VLBIInstrumentModels.SiteLookup{@NamedTuple{AA::Vector{Int64}, AP::Vector{Int64}, AZ::Vector{Int64}, JC::Vector{Int64}, LM::Vector{Int64}, PV::Vector{Int64}, SM::Vector{Int64}}, 1, Vector{VLBIInstrumentModels.IntegrationTime{Int64, Float64}}, Vector{VLBIInstrumentModels.FrequencyChannel{Float64, Int64}}, Vector{Symbol}}}}}}}, Comrade.ObservedSkyModel{typeof(movie_sky), FourierDualDomain{RectiGrid{Tuple{X{DimensionalData.Dimensions.Lookups.Sampled{Float64, LinRange{Float64, Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Float64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Y{DimensionalData.Dimensions.Lookups.Sampled{Float64, LinRange{Float64, Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Float64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Ti{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Explicit{Matrix{Float64}}, DimensionalData.Dimensions.Lookups.Intervals{DimensionalData.Dimensions.Lookups.Center}, DimensionalData.Dimensions.Lookups.NoMetadata}}}, Serial, DimensionalData.Dimensions.Lookups.NoMetadata, Float64}, StructuredDomain{Tuple{Node{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Fr{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, @NamedTuple{U::ConcreteIFRTArray{Float64, 2, Nothing}, V::ConcreteIFRTArray{Float64, 2, Nothing}, Ti::ConcreteIFRTArray{Float64, 1, Nothing}}, @NamedTuple{U::Tuple{Symbol, Symbol}, V::Tuple{Symbol, Symbol}, Ti::Tuple{Symbol}}, ReactantEx{Nothing}, ArrayInfo{StructArrays.StructVector{@NamedTuple{name::Symbol, position::StaticArraysCore.SVector{3, Float64}, mount::Mount{Float64, Float64, Float64, Tuple{Float64, Float64, Float64}}, feeds::Tuple{RPol, LPol}, feed_angles::Tuple{Float64, Float64}}, @NamedTuple{name::Vector{Symbol}, position::Vector{StaticArraysCore.SVector{3, Float64}}, mount::Vector{Mount{Float64, Float64, Float64, Tuple{Float64, Float64, Float64}}}, feeds::Vector{Tuple{RPol, LPol}}, feed_angles::Vector{Tuple{Float64, Float64}}}, Int64}, StructArrays.StructVector{@NamedTuple{frequency::Float64, width::Float64}, @NamedTuple{frequency::Vector{Float64}, width::Vector{Float64}}, Int64}, StructArrays.StructVector{@NamedTuple{start::Float64, stop::Float64}, @NamedTuple{start::Vector{Float64}, stop::Vector{Float64}}, Int64}, StructArrays.StructVector{@NamedTuple{start::Float64, stop::Float64}, @NamedTuple{start::Vector{Float64}, stop::Vector{Float64}}, Int64}}}, ReactantNUFFTAlg{Float64, Tuple{}}, VLBISkyModels.NUFTPlan{ReactantNUFFTAlg{Float64, Tuple{}}, VLBISkyModelsReactantExt.PlaneStack{VLBISkyModelsReactantExt.NUFFTSetPts{Float64, 2, VLBISkyModelsReactantExt.NUFFTPlan{Float64, 2, 2, Matrix{Float64}, Vector{Float64}}, ConcreteIFRTArray{Int64, 1, Nothing}, Tuple{ConcreteIFRTArray{Int64, 1, Nothing}, ConcreteIFRTArray{Int64, 1, Nothing}}, Tuple{ConcreteIFRTArray{Float64, 1, Nothing}, ConcreteIFRTArray{Float64, 1, Nothing}}}, ConcreteIFRTArray{Int64, 2, Nothing}, Tuple{}}, ConcreteIFRTArray{ComplexF64, 1, Nothing}, Tuple{Vector{CartesianIndex{1}}, Vector{UnitRange{Int64}}}, Tuple{Int64, Int64}}, VLBISkyModels.NUFTPlan{ReactantNUFFTAlg{Float64, Tuple{}}, VLBISkyModelsReactantExt.PlaneStack{VLBISkyModelsReactantExt.NUFFTSetPts{Float64, 2, VLBISkyModelsReactantExt.NUFFTPlan{Float64, 2, 2, Matrix{Float64}, Vector{Float64}}, ConcreteIFRTArray{Int64, 1, Nothing}, Tuple{ConcreteIFRTArray{Int64, 1, Nothing}, ConcreteIFRTArray{Int64, 1, Nothing}}, Tuple{ConcreteIFRTArray{Float64, 1, Nothing}, ConcreteIFRTArray{Float64, 1, Nothing}}}, ConcreteIFRTArray{Int64, 2, Nothing}, Tuple{}}, ConcreteIFRTArray{ComplexF64, 1, Nothing}, Tuple{Vector{CartesianIndex{1}}, Vector{UnitRange{Int64}}}, Tuple{Int64, Int64}}}, @NamedTuple{logmean::ConcreteIFRTArray{Float64, 3, Nothing}, ftot::Float64}}, VLBIInstrumentModels.ObservedInstrumentModel{Jones{var"#9#10", @NamedTuple{}}, CirBasis, VLBIInstrumentModels.CellLayout{StructArrays.StructVector{@NamedTuple{ant::Int64, Ti::Float64, Fr::Float64, elevation::Float64, parallactic::Float64, azimuth::Float64, ra::Float64, dec::Float64}, @NamedTuple{ant::ConcreteIFRTArray{Int64, 1, Nothing}, Ti::ConcreteIFRTArray{Float64, 1, Nothing}, Fr::ConcreteIFRTArray{Float64, 1, Nothing}, elevation::ConcreteIFRTArray{Float64, 1, Nothing}, parallactic::ConcreteIFRTArray{Float64, 1, Nothing}, azimuth::ConcreteIFRTArray{Float64, 1, Nothing}, ra::ConcreteIFRTArray{Float64, 1, Nothing}, dec::ConcreteIFRTArray{Float64, 1, Nothing}}, CartesianIndex{1}}, ConcreteIFRTArray{Int64, 2, Nothing}, @NamedTuple{lg::ConcreteIFRTArray{Int64, 1, Nothing}, gp::ConcreteIFRTArray{Int64, 1, Nothing}}, Nothing, Tuple{Node{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Fr{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}}, IPol, false}, Nothing}, TransportedDistribution{TransformVariables.TransformTuple{@NamedTuple{sky::TransformVariables.TransformTuple{@NamedTuple{c::TransformVariables.TransformTuple{NTuple{4, TransformVariables.TransformTuple{@NamedTuple{params::TransformVariables.ArrayTransformation{TransformVariables.Identity, 2}, hyperparams::TransformVariables.CompositeScalarTransform{Tuple{TransformVariables.TVShift{Float64}, TransformVariables.TVScale{Float64}, TransformVariables.TVLogistic}}}}}}, σimg::TransformVariables.CompositeScalarTransform{Tuple{TransformVariables.TVShift{Int64}, TransformVariables.TVExp}}}}, instrument::TransformVariables.TransformTuple{@NamedTuple{lg::VLBIInstrumentModels.InstrumentTransform{TransformVariables.ArrayTransformation{TransformVariables.Identity, 1}, VLBIInstrumentModels.SiteLookup{@NamedTuple{AA::Vector{Int64}, AP::Vector{Int64}, AZ::Vector{Int64}, JC::Vector{Int64}, LM::Vector{Int64}, PV::Vector{Int64}, SM::Vector{Int64}}, 1, Vector{VLBIInstrumentModels.IntegrationTime{Int64, Float64}}, Vector{VLBIInstrumentModels.FrequencyChannel{Float64, Int64}}, Vector{Symbol}}}, gp::VLBIInstrumentModels.InstrumentTransform{VLBIInstrumentModels.PartiallyFixedTransform{TransformVariables.ArrayTransformation{TransformVariables.Identity, 1}, Vector{Int64}, Vector{Float64}}, VLBIInstrumentModels.SiteLookup{@NamedTuple{AA::Vector{Int64}, AP::Vector{Int64}, AZ::Vector{Int64}, JC::Vector{Int64}, LM::Vector{Int64}, PV::Vector{Int64}, SM::Vector{Int64}}, 1, Vector{VLBIInstrumentModels.IntegrationTime{Int64, Float64}}, Vector{VLBIInstrumentModels.FrequencyChannel{Float64, Int64}}, Vector{Symbol}}}}}}}, NamedDist{(:sky, :instrument), Tuple{NamedDist{(:c, :σimg), Tuple{TupleDist{4, NTuple{4, HierarchicalPrior{ConditionalMarkov{GaussMarkovRandomField, MarkovRandomFieldGraph{1, SparseArrays.SparseMatrixCSC{Float64, Int64}, Diagonal{Float64, Vector{Float64}}, Matrix{Float64}, Serial}}, ProbabilityTransports.Truncated{PushforwardDistribution{ProbabilityTransports.ScaleShift{Float64, Float64}, StdInverseGamma{Float64, Float64, 0, Float64}, 0, Float64}, Float64, Int64, Float64}}}}, PushforwardDistribution{ProbabilityTransports.ScaleShift{Float64, Float64}, StdExponential{Float64, 0}, 0, Float64}}}, NamedDist{(:lg, :gp), Tuple{VLBIInstrumentModels.ObservedArrayPrior{PushforwardDistribution{ProbabilityTransports.ScaleShift{Vector{Float64}, Vector{Float64}}, StdNormal{Float64, 1}, 1, Float64}, VLBIInstrumentModels.SiteLookup{@NamedTuple{AA::Vector{Int64}, AP::Vector{Int64}, AZ::Vector{Int64}, JC::Vector{Int64}, LM::Vector{Int64}, PV::Vector{Int64}, SM::Vector{Int64}}, 1, Vector{VLBIInstrumentModels.IntegrationTime{Int64, Float64}}, Vector{VLBIInstrumentModels.FrequencyChannel{Float64, Int64}}, Vector{Symbol}}}, VLBIInstrumentModels.ObservedArrayPrior{VLBIInstrumentModels.PartiallyConditionedDist{PushforwardDistribution{ProbabilityTransports.ScaleShift{Vector{Float64}, Vector{Float64}}, StdNormal{Float64, 1}, 1, Float64}, Vector{Int64}, Vector{Float64}}, VLBIInstrumentModels.SiteLookup{@NamedTuple{AA::Vector{Int64}, AP::Vector{Int64}, AZ::Vector{Int64}, JC::Vector{Int64}, LM::Vector{Int64}, PV::Vector{Int64}, SM::Vector{Int64}}, 1, Vector{VLBIInstrumentModels.IntegrationTime{Int64, Float64}}, Vector{VLBIInstrumentModels.FrequencyChannel{Float64, Int64}}, Vector{Symbol}}}}}}}, Nothing, Multivariate}}, ConcreteIFRTArray{Float64, 1, Nothing}}; kwargs::@Kwargs{fn_kwargs::@NamedTuple{}, client::Nothing, reshape_propagate::Symbol, raise_first::Bool, assert_nonallocating::Bool, serializable::Bool, legalize_chlo_to_stablehlo::Bool, transpose_propagate::Symbol, strip_llvm_debuginfo::Bool, speculate_partial_ifs::Bool, donated_args::Symbol, optimize_then_pad::Bool, cudnn_hlo_optimize::Bool, compile_options::Missing, sync::Bool, no_nan::Bool, raise::Bool, shardy_passes::Symbol, optimize::Bool, optimize_communications::Bool})
+    @ Reactant.Compiler ~/.julia/packages/Reactant/1C1cP/src/compiler/Compiler.jl:1371
+ [14] compile
+    @ ~/.julia/packages/Reactant/1C1cP/src/compiler/Compiler.jl:1368 [inlined]
+ [15] macro expansion
+    @ ~/.julia/packages/Reactant/1C1cP/src/compiler/Macros.jl:256 [inlined]
+ [16] macro expansion
+    @ ~/.julia/packages/LLVM/JGisQ/src/base.jl:143 [inlined]
+ [17] macro expansion
+    @ ~/.julia/packages/Reactant/1C1cP/src/compiler/Macros.jl:255 [inlined]
+ [18] macro expansion
+    @ ./timing.jl:463 [inlined]
+ [19] run_reactant(label::String, tdev::Comrade.TransformedVLBIPosterior{VLBIPosterior{Tuple{VisTable{IPol, ComradeBase.StructuredMap{ComplexF64, 2, Tuple{Node{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Fr{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, StructuredDomain{Tuple{Node{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Fr{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, @NamedTuple{u::Vector{Float64}, v::Vector{Float64}, Ti::Vector{Float64}, ts::Vector{Int64}, ant1::Vector{Int64}, ant2::Vector{Int64}}, @NamedTuple{u::Tuple{Symbol}, v::Tuple{Symbol}, Ti::Tuple{Symbol}, ts::Tuple{Symbol}, ant1::Tuple{Symbol}, ant2::Tuple{Symbol}}, Serial, ArrayInfo{StructArrays.StructVector{@NamedTuple{name::Symbol, position::StaticArraysCore.SVector{3, Float64}, mount::Mount{Float64, Float64, Float64, Tuple{Float64, Float64, Float64}}, feeds::Tuple{RPol, LPol}, feed_angles::Tuple{Float64, Float64}}, @NamedTuple{name::Vector{Symbol}, position::Vector{StaticArraysCore.SVector{3, Float64}}, mount::Vector{Mount{Float64, Float64, Float64, Tuple{Float64, Float64, Float64}}}, feeds::Vector{Tuple{RPol, LPol}}, feed_angles::Vector{Tuple{Float64, Float64}}}, Int64}, StructArrays.StructVector{@NamedTuple{frequency::Float64, width::Float64}, @NamedTuple{frequency::Vector{Float64}, width::Vector{Float64}}, Int64}, StructArrays.StructVector{@NamedTuple{start::Float64, stop::Float64}, @NamedTuple{start::Vector{Float64}, stop::Vector{Float64}}, Int64}, StructArrays.StructVector{@NamedTuple{start::Float64, stop::Float64}, @NamedTuple{start::Vector{Float64}, stop::Vector{Float64}}, Int64}}}, Matrix{ComplexF64}, Tuple{}, Symbol}, ComradeBase.StructuredMap{Float64, 2, Tuple{Node{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Fr{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, StructuredDomain{Tuple{Node{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Fr{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, @NamedTuple{u::Vector{Float64}, v::Vector{Float64}, Ti::Vector{Float64}, ts::Vector{Int64}, ant1::Vector{Int64}, ant2::Vector{Int64}}, @NamedTuple{u::Tuple{Symbol}, v::Tuple{Symbol}, Ti::Tuple{Symbol}, ts::Tuple{Symbol}, ant1::Tuple{Symbol}, ant2::Tuple{Symbol}}, Serial, ArrayInfo{StructArrays.StructVector{@NamedTuple{name::Symbol, position::StaticArraysCore.SVector{3, Float64}, mount::Mount{Float64, Float64, Float64, Tuple{Float64, Float64, Float64}}, feeds::Tuple{RPol, LPol}, feed_angles::Tuple{Float64, Float64}}, @NamedTuple{name::Vector{Symbol}, position::Vector{StaticArraysCore.SVector{3, Float64}}, mount::Vector{Mount{Float64, Float64, Float64, Tuple{Float64, Float64, Float64}}}, feeds::Vector{Tuple{RPol, LPol}}, feed_angles::Vector{Tuple{Float64, Float64}}}, Int64}, StructArrays.StructVector{@NamedTuple{frequency::Float64, width::Float64}, @NamedTuple{frequency::Vector{Float64}, width::Vector{Float64}}, Int64}, StructArrays.StructVector{@NamedTuple{start::Float64, stop::Float64}, @NamedTuple{start::Vector{Float64}, stop::Vector{Float64}}, Int64}, StructArrays.StructVector{@NamedTuple{start::Float64, stop::Float64}, @NamedTuple{start::Vector{Float64}, stop::Vector{Float64}}, Int64}}}, Matrix{Float64}, Tuple{}, Symbol}, DimStack{(:elevation, :parallactic, :azimuth), @NamedTuple{elevation::Float64, parallactic::Float64, azimuth::Float64}, 2, @NamedTuple{elevation::Matrix{Float64}, parallactic::Matrix{Float64}, azimuth::Matrix{Float64}}, Tuple{Ant{DimensionalData.Dimensions.Lookups.Categorical{Symbol, Vector{Symbol}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.NoMetadata}}, Ti{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, Tuple{}, Tuple{Tuple{Ant{Colon}, Ti{Colon}}, Tuple{Ant{Colon}, Ti{Colon}}, Tuple{Ant{Colon}, Ti{Colon}}}, DimensionalData.Dimensions.Lookups.NoMetadata, Tuple{DimensionalData.Dimensions.Lookups.NoMetadata, DimensionalData.Dimensions.Lookups.NoMetadata, DimensionalData.Dimensions.Lookups.NoMetadata}}}}, Nothing, Tuple{Comrade.ConditionedLikelihood{Comrade._Visibility{ConcreteIFRTArray{Float64, 2, Nothing}, Float64}, ConcreteIFRTArray{ComplexF64, 2, Nothing}}}, Tuple{}, NamedDist{(:sky, :instrument), Tuple{NamedDist{(:c, :σimg), Tuple{TupleDist{4, NTuple{4, HierarchicalPrior{ConditionalMarkov{GaussMarkovRandomField, MarkovRandomFieldGraph{1, SparseArrays.SparseMatrixCSC{Float64, Int64}, Diagonal{Float64, Vector{Float64}}, Matrix{Float64}, Serial}}, ProbabilityTransports.Truncated{PushforwardDistribution{ProbabilityTransports.ScaleShift{Float64, Float64}, StdInverseGamma{Float64, Float64, 0, Float64}, 0, Float64}, Float64, Int64, Float64}}}}, PushforwardDistribution{ProbabilityTransports.ScaleShift{Float64, Float64}, StdExponential{Float64, 0}, 0, Float64}}}, NamedDist{(:lg, :gp), Tuple{VLBIInstrumentModels.ObservedArrayPrior{PushforwardDistribution{ProbabilityTransports.ScaleShift{Vector{Float64}, Vector{Float64}}, StdNormal{Float64, 1}, 1, Float64}, VLBIInstrumentModels.SiteLookup{@NamedTuple{AA::Vector{Int64}, AP::Vector{Int64}, AZ::Vector{Int64}, JC::Vector{Int64}, LM::Vector{Int64}, PV::Vector{Int64}, SM::Vector{Int64}}, 1, Vector{VLBIInstrumentModels.IntegrationTime{Int64, Float64}}, Vector{VLBIInstrumentModels.FrequencyChannel{Float64, Int64}}, Vector{Symbol}}}, VLBIInstrumentModels.ObservedArrayPrior{VLBIInstrumentModels.PartiallyConditionedDist{PushforwardDistribution{ProbabilityTransports.ScaleShift{Vector{Float64}, Vector{Float64}}, StdNormal{Float64, 1}, 1, Float64}, Vector{Int64}, Vector{Float64}}, VLBIInstrumentModels.SiteLookup{@NamedTuple{AA::Vector{Int64}, AP::Vector{Int64}, AZ::Vector{Int64}, JC::Vector{Int64}, LM::Vector{Int64}, PV::Vector{Int64}, SM::Vector{Int64}}, 1, Vector{VLBIInstrumentModels.IntegrationTime{Int64, Float64}}, Vector{VLBIInstrumentModels.FrequencyChannel{Float64, Int64}}, Vector{Symbol}}}}}}}, Comrade.ObservedSkyModel{typeof(movie_sky), FourierDualDomain{RectiGrid{Tuple{X{DimensionalData.Dimensions.Lookups.Sampled{Float64, LinRange{Float64, Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Float64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Y{DimensionalData.Dimensions.Lookups.Sampled{Float64, LinRange{Float64, Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Float64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Ti{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Explicit{Matrix{Float64}}, DimensionalData.Dimensions.Lookups.Intervals{DimensionalData.Dimensions.Lookups.Center}, DimensionalData.Dimensions.Lookups.NoMetadata}}}, Serial, DimensionalData.Dimensions.Lookups.NoMetadata, Float64}, StructuredDomain{Tuple{Node{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Fr{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}, @NamedTuple{U::ConcreteIFRTArray{Float64, 2, Nothing}, V::ConcreteIFRTArray{Float64, 2, Nothing}, Ti::ConcreteIFRTArray{Float64, 1, Nothing}}, @NamedTuple{U::Tuple{Symbol, Symbol}, V::Tuple{Symbol, Symbol}, Ti::Tuple{Symbol}}, ReactantEx{Nothing}, ArrayInfo{StructArrays.StructVector{@NamedTuple{name::Symbol, position::StaticArraysCore.SVector{3, Float64}, mount::Mount{Float64, Float64, Float64, Tuple{Float64, Float64, Float64}}, feeds::Tuple{RPol, LPol}, feed_angles::Tuple{Float64, Float64}}, @NamedTuple{name::Vector{Symbol}, position::Vector{StaticArraysCore.SVector{3, Float64}}, mount::Vector{Mount{Float64, Float64, Float64, Tuple{Float64, Float64, Float64}}}, feeds::Vector{Tuple{RPol, LPol}}, feed_angles::Vector{Tuple{Float64, Float64}}}, Int64}, StructArrays.StructVector{@NamedTuple{frequency::Float64, width::Float64}, @NamedTuple{frequency::Vector{Float64}, width::Vector{Float64}}, Int64}, StructArrays.StructVector{@NamedTuple{start::Float64, stop::Float64}, @NamedTuple{start::Vector{Float64}, stop::Vector{Float64}}, Int64}, StructArrays.StructVector{@NamedTuple{start::Float64, stop::Float64}, @NamedTuple{start::Vector{Float64}, stop::Vector{Float64}}, Int64}}}, ReactantNUFFTAlg{Float64, Tuple{}}, VLBISkyModels.NUFTPlan{ReactantNUFFTAlg{Float64, Tuple{}}, VLBISkyModelsReactantExt.PlaneStack{VLBISkyModelsReactantExt.NUFFTSetPts{Float64, 2, VLBISkyModelsReactantExt.NUFFTPlan{Float64, 2, 2, Matrix{Float64}, Vector{Float64}}, ConcreteIFRTArray{Int64, 1, Nothing}, Tuple{ConcreteIFRTArray{Int64, 1, Nothing}, ConcreteIFRTArray{Int64, 1, Nothing}}, Tuple{ConcreteIFRTArray{Float64, 1, Nothing}, ConcreteIFRTArray{Float64, 1, Nothing}}}, ConcreteIFRTArray{Int64, 2, Nothing}, Tuple{}}, ConcreteIFRTArray{ComplexF64, 1, Nothing}, Tuple{Vector{CartesianIndex{1}}, Vector{UnitRange{Int64}}}, Tuple{Int64, Int64}}, VLBISkyModels.NUFTPlan{ReactantNUFFTAlg{Float64, Tuple{}}, VLBISkyModelsReactantExt.PlaneStack{VLBISkyModelsReactantExt.NUFFTSetPts{Float64, 2, VLBISkyModelsReactantExt.NUFFTPlan{Float64, 2, 2, Matrix{Float64}, Vector{Float64}}, ConcreteIFRTArray{Int64, 1, Nothing}, Tuple{ConcreteIFRTArray{Int64, 1, Nothing}, ConcreteIFRTArray{Int64, 1, Nothing}}, Tuple{ConcreteIFRTArray{Float64, 1, Nothing}, ConcreteIFRTArray{Float64, 1, Nothing}}}, ConcreteIFRTArray{Int64, 2, Nothing}, Tuple{}}, ConcreteIFRTArray{ComplexF64, 1, Nothing}, Tuple{Vector{CartesianIndex{1}}, Vector{UnitRange{Int64}}}, Tuple{Int64, Int64}}}, @NamedTuple{logmean::ConcreteIFRTArray{Float64, 3, Nothing}, ftot::Float64}}, VLBIInstrumentModels.ObservedInstrumentModel{Jones{var"#9#10", @NamedTuple{}}, CirBasis, VLBIInstrumentModels.CellLayout{StructArrays.StructVector{@NamedTuple{ant::Int64, Ti::Float64, Fr::Float64, elevation::Float64, parallactic::Float64, azimuth::Float64, ra::Float64, dec::Float64}, @NamedTuple{ant::ConcreteIFRTArray{Int64, 1, Nothing}, Ti::ConcreteIFRTArray{Float64, 1, Nothing}, Fr::ConcreteIFRTArray{Float64, 1, Nothing}, elevation::ConcreteIFRTArray{Float64, 1, Nothing}, parallactic::ConcreteIFRTArray{Float64, 1, Nothing}, azimuth::ConcreteIFRTArray{Float64, 1, Nothing}, ra::ConcreteIFRTArray{Float64, 1, Nothing}, dec::ConcreteIFRTArray{Float64, 1, Nothing}}, CartesianIndex{1}}, ConcreteIFRTArray{Int64, 2, Nothing}, @NamedTuple{lg::ConcreteIFRTArray{Int64, 1, Nothing}, gp::ConcreteIFRTArray{Int64, 1, Nothing}}, Nothing, Tuple{Node{DimensionalData.Dimensions.Lookups.Sampled{Int64, Base.OneTo{Int64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Regular{Int64}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}, Fr{DimensionalData.Dimensions.Lookups.Sampled{Float64, Vector{Float64}, DimensionalData.Dimensions.Lookups.ForwardOrdered, DimensionalData.Dimensions.Lookups.Irregular{Tuple{Nothing, Nothing}}, DimensionalData.Dimensions.Lookups.Points, DimensionalData.Dimensions.Lookups.NoMetadata}}}}, IPol, false}, Nothing}, TransportedDistribution{TransformVariables.TransformTuple{@NamedTuple{sky::TransformVariables.TransformTuple{@NamedTuple{c::TransformVariables.TransformTuple{NTuple{4, TransformVariables.TransformTuple{@NamedTuple{params::TransformVariables.ArrayTransformation{TransformVariables.Identity, 2}, hyperparams::TransformVariables.CompositeScalarTransform{Tuple{TransformVariables.TVShift{Float64}, TransformVariables.TVScale{Float64}, TransformVariables.TVLogistic}}}}}}, σimg::TransformVariables.CompositeScalarTransform{Tuple{TransformVariables.TVShift{Int64}, TransformVariables.TVExp}}}}, instrument::TransformVariables.TransformTuple{@NamedTuple{lg::VLBIInstrumentModels.InstrumentTransform{TransformVariables.ArrayTransformation{TransformVariables.Identity, 1}, VLBIInstrumentModels.SiteLookup{@NamedTuple{AA::Vector{Int64}, AP::Vector{Int64}, AZ::Vector{Int64}, JC::Vector{Int64}, LM::Vector{Int64}, PV::Vector{Int64}, SM::Vector{Int64}}, 1, Vector{VLBIInstrumentModels.IntegrationTime{Int64, Float64}}, Vector{VLBIInstrumentModels.FrequencyChannel{Float64, Int64}}, Vector{Symbol}}}, gp::VLBIInstrumentModels.InstrumentTransform{VLBIInstrumentModels.PartiallyFixedTransform{TransformVariables.ArrayTransformation{TransformVariables.Identity, 1}, Vector{Int64}, Vector{Float64}}, VLBIInstrumentModels.SiteLookup{@NamedTuple{AA::Vector{Int64}, AP::Vector{Int64}, AZ::Vector{Int64}, JC::Vector{Int64}, LM::Vector{Int64}, PV::Vector{Int64}, SM::Vector{Int64}}, 1, Vector{VLBIInstrumentModels.IntegrationTime{Int64, Float64}}, Vector{VLBIInstrumentModels.FrequencyChannel{Float64, Int64}}, Vector{Symbol}}}}}}}, NamedDist{(:sky, :instrument), Tuple{NamedDist{(:c, :σimg), Tuple{TupleDist{4, NTuple{4, HierarchicalPrior{ConditionalMarkov{GaussMarkovRandomField, MarkovRandomFieldGraph{1, SparseArrays.SparseMatrixCSC{Float64, Int64}, Diagonal{Float64, Vector{Float64}}, Matrix{Float64}, Serial}}, ProbabilityTransports.Truncated{PushforwardDistribution{ProbabilityTransports.ScaleShift{Float64, Float64}, StdInverseGamma{Float64, Float64, 0, Float64}, 0, Float64}, Float64, Int64, Float64}}}}, PushforwardDistribution{ProbabilityTransports.ScaleShift{Float64, Float64}, StdExponential{Float64, 0}, 0, Float64}}}, NamedDist{(:lg, :gp), Tuple{VLBIInstrumentModels.ObservedArrayPrior{PushforwardDistribution{ProbabilityTransports.ScaleShift{Vector{Float64}, Vector{Float64}}, StdNormal{Float64, 1}, 1, Float64}, VLBIInstrumentModels.SiteLookup{@NamedTuple{AA::Vector{Int64}, AP::Vector{Int64}, AZ::Vector{Int64}, JC::Vector{Int64}, LM::Vector{Int64}, PV::Vector{Int64}, SM::Vector{Int64}}, 1, Vector{VLBIInstrumentModels.IntegrationTime{Int64, Float64}}, Vector{VLBIInstrumentModels.FrequencyChannel{Float64, Int64}}, Vector{Symbol}}}, VLBIInstrumentModels.ObservedArrayPrior{VLBIInstrumentModels.PartiallyConditionedDist{PushforwardDistribution{ProbabilityTransports.ScaleShift{Vector{Float64}, Vector{Float64}}, StdNormal{Float64, 1}, 1, Float64}, Vector{Int64}, Vector{Float64}}, VLBIInstrumentModels.SiteLookup{@NamedTuple{AA::Vector{Int64}, AP::Vector{Int64}, AZ::Vector{Int64}, JC::Vector{Int64}, LM::Vector{Int64}, PV::Vector{Int64}, SM::Vector{Int64}}, 1, Vector{VLBIInstrumentModels.IntegrationTime{Int64, Float64}}, Vector{VLBIInstrumentModels.FrequencyChannel{Float64, Int64}}, Vector{Symbol}}}}}}}, Nothing, Multivariate}}, xr::ConcreteIFRTArray{Float64, 1, Nothing})
+    @ Main ~/.julia/dev/ComradeShardDemo/main.jl:123
+ [20] top-level scope
+    @ ~/.julia/dev/ComradeShardDemo/main.jl:142
+ [21] include(mod::Module, _path::String)
+    @ Base ./Base.jl:309
+ [22] exec_options(opts::Base.JLOptions)
+    @ Base ./client.jl:344
+ [23] _start()
+    @ Base ./client.jl:577
+in expression starting at /home/ptiede/.julia/dev/ComradeShardDemo/main.jl:140

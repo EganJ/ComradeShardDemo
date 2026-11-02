@@ -1,0 +1,23 @@
+name = "FieldDimArrays"
+uuid = "8162b97e-af21-446d-9d6e-57a067fd3c83"
+authors = ["Paul Tiede <ptiede91@gmail.com> and contributors"]
+version = "0.1.0"
+
+[weakdeps]
+AbstractFFTs = "621f4979-c628-5d54-868e-fcf4e3e8185c"
+Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
+Reactant = "3c362404-f566-11ee-1572-e11a4b42c853"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+
+[extensions]
+FieldDimArraysAbstractFFTsExt = "AbstractFFTs"
+FieldDimArraysAdaptExt = "Adapt"
+FieldDimArraysReactantExt = "Reactant"
+FieldDimArraysStaticArraysExt = "StaticArrays"
+
+[compat]
+AbstractFFTs = "1.5"
+Adapt = "4"
+Reactant = "0.2.290"
+StaticArrays = "1"
+julia = "1.10"

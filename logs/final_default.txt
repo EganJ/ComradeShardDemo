@@ -1,0 +1,42 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1793639833.507512 1382527 pjrt_client.cc:589] PjRt-IFRT device count: total=4, addressable=4
+I0000 00:00:1793639833.507572 1382527 pjrt_client.cc:593] Addressable PjRt-IFRT device: CpuDevice(id=0)
+I0000 00:00:1793639833.507575 1382527 pjrt_client.cc:593] Addressable PjRt-IFRT device: CpuDevice(id=1)
+I0000 00:00:1793639833.507576 1382527 pjrt_client.cc:593] Addressable PjRt-IFRT device: CpuDevice(id=2)
+I0000 00:00:1793639833.507578 1382527 pjrt_client.cc:593] Addressable PjRt-IFRT device: CpuDevice(id=3)
+backend = cpu, devices = 4 (Reactant.XLA.IFRT.Device), threads = 8
+NPIX = 32, NT = 8, AVG = scan, FRAMES = time, NEVAL = 10, MODES = cpu,single,shard
+[13.9 s | RSS 1.48 GiB, peak 1.49 GiB] loaded 274 visibilities
+[30.2 s | RSS 1.66 GiB, peak 1.66 GiB] posterior: 274 visibilities, 8 frames of 32×32, 8428 parameters
+[94.7 s | RSS 1.89 GiB, peak 1.99 GiB] CPU first calls: logdensity 588.67 ms, gradient 63.91 s (includes Julia/Enzyme compilation); logdensity = -1.4811697561353076e7
+[95.1 s | RSS 1.89 GiB, peak 1.99 GiB] CPU: logdensity 444.1 µs (min 403.5 µs), gradient 1.46 ms (min 1.4 ms)
+[167.1 s | RSS 2.39 GiB, peak 2.39 GiB] 1 device: compiled logdensity in 50.11 s
+[181.7 s | RSS 1.77 GiB, peak 2.39 GiB] 1 device: compiled gradient in 14.56 s
+[182.3 s | RSS 1.79 GiB, peak 2.39 GiB] 1 device: logdensity = -1.481169756241944e7, rel. error vs CPU = 7.199474223110646e-11; gradient rel. error (2-norm) = 2.5692869983179697e-10, max abs = 0.0006186924874782562
+[182.5 s | RSS 1.79 GiB, peak 2.39 GiB] 1 device: logdensity 537.6 µs (min 515.7 µs), gradient 1.21 ms (min 990.3 µs)
+[195.1 s | RSS 1.86 GiB, peak 2.39 GiB] sharded posterior placed in 12.19 s
+W0000 00:00:1793640046.488186 1382527 shardy_xla_pass.cc:431] Module contains sdy shardings or meshes in frontend_attributes even when HloShardingV3 is enabled. This is probably due to stale model export, try re-exporting the model on HEAD (with HloShardingV3 enabled). Disabling HloShardingV3 here to prevent conflicts during Shardy import
+device arrays in the posterior: 24, all with a sharding: true
+data on the devices: size (400, 1) (host 274 visibilities, padded per device)
+  device 1 holds rows 1:100 of the data
+  device 2 holds rows 101:200 of the data
+  device 3 holds rows 201:300 of the data
+  device 4 holds rows 301:400 of the data
+[212.3 s | RSS 1.6 GiB, peak 2.39 GiB] 4 devices: compiled logdensity in 13.58 s
+W0000 00:00:1793640057.539622 1382527 shardy_xla_pass.cc:431] Module contains sdy shardings or meshes in frontend_attributes even when HloShardingV3 is enabled. This is probably due to stale model export, try re-exporting the model on HEAD (with HloShardingV3 enabled). Disabling HloShardingV3 here to prevent conflicts during Shardy import
+[223.1 s | RSS 1.62 GiB, peak 2.39 GiB] 4 devices: compiled gradient in 10.8 s
+[224.0 s | RSS 1.57 GiB, peak 2.39 GiB] 4 devices: logdensity = -1.4811697562419448e7, rel. error vs CPU = 7.199524525113952e-11; gradient rel. error (2-norm) = 2.5693011252838077e-10, max abs = 0.0006187050603330135
+[224.5 s | RSS 1.57 GiB, peak 2.39 GiB] 4 devices: logdensity 13.58 ms (min 11.09 ms), gradient 13.5 ms (min 12.28 ms)
+W0000 00:00:1793640062.048804 1382527 shardy_xla_pass.cc:431] Module contains sdy shardings or meshes in frontend_attributes even when HloShardingV3 is enabled. This is probably due to stale model export, try re-exporting the model on HEAD (with HloShardingV3 enabled). Disabling HloShardingV3 here to prevent conflicts during Shardy import
+W0000 00:00:1793640064.598062 1382527 shardy_xla_pass.cc:431] Module contains sdy shardings or meshes in frontend_attributes even when HloShardingV3 is enabled. This is probably due to stale model export, try re-exporting the model on HEAD (with HloShardingV3 enabled). Disabling HloShardingV3 here to prevent conflicts during Shardy import
+W0000 00:00:1793640071.537052 1382527 shardy_xla_pass.cc:431] Module contains sdy shardings or meshes in frontend_attributes even when HloShardingV3 is enabled. This is probably due to stale model export, try re-exporting the model on HEAD (with HloShardingV3 enabled). Disabling HloShardingV3 here to prevent conflicts during Shardy import
+partitioned HLO collectives, logdensity: (all_reduce = 1, all_gather = 0, reduce_scatter = 0, all_to_all = 0, collective_permute = 3, var"while" = 0)
+partitioned HLO collectives, gradient:   (all_reduce = 1, all_gather = 0, reduce_scatter = 0, all_to_all = 0, collective_permute = 6, var"while" = 0)
+arrays of the per-device data length [100, ...] in the partitioned gradient HLO: 290; of the full length [400, ...]: 0
+[237.5 s | RSS 1.28 GiB, peak 2.39 GiB] 20 Adam steps on the sharded posterior: compile 6.91 s, run 339.17 ms (16.96 ms per step); logdensity -1.4811697562419448e7 -> -8.1508999381381e6
+
+SUMMARY (median of 10 calls; NPIX = 32, NT = 8, 274 visibilities, 8428 parameters)
+CPU (no Reactant)      compile ld     NaN s, grad     NaN s | logdensity  444.1 µs | gradient   1.46 ms
+Reactant, 1 device     compile ld   50.11 s, grad   14.56 s | logdensity  537.6 µs | gradient   1.21 ms, rel. err ld 7.2e-11, grad 2.6e-10
+Reactant, 4 devices    compile ld   13.58 s, grad    10.8 s | logdensity  13.58 ms | gradient   13.5 ms, rel. err ld 7.2e-11, grad 2.6e-10
+[237.7 s | RSS 1.28 GiB, peak 2.39 GiB] done

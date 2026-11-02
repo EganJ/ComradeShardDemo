@@ -1,0 +1,113 @@
+"""
+    AbstractSkyModel
+
+The abstract type for Comrade Sky Models. For a concrete implementation see [`SkyModel`](@ref).
+
+Any subtype must implement the following methods
+ - `ObservedSkyModel(m::AbstractSkyModel, t::VisTable)`: Constructs an observed sky model
+    given the sky model `m` and the array configuration `array`. This method is used to compute the visibilities
+    and image of the sky model.
+
+The following methods have default implementations:
+ - `idealmaps(datatype, m::AbstractSkyModel, x)`: Computes the ideal intensities and visibilities of the sky model `m`
+    given the model parameters `x`.
+ - `skymodel(m::AbstractSkyModel, x)`: Returns the sky model image given the model parameters `x`.
+ - `domain(m::AbstractSkyModel)`: Returns the domain of the sky model `m`.
+ - `observe(m::AbstractSkyModel, t::VisTable)`: Sets the array configuration
+    for the sky model `m` and returns the observed sky model and prior.
+ - `set_prior(m::AbstractSkyModel, t::VisTable)`: Sets the prior for the sky model
+    `m` given the array configuration `array`. This is used to set the priors for the model parameters.
+
+"""
+abstract type AbstractSkyModel end
+
+function Base.show(io::IO, mime::MIME"text/plain", m::AbstractSkyModel)
+    T = typeof(m)
+    ST = split(split(" $T", '{')[1], ".")[end]
+    printstyled(io, ST; bold = true, color = :blue)
+    println(io)
+    println(io, "  with map: $(skymodel(m))")
+    # GT = typeof(domain(m))
+    # SGT = split("$GT", '{')[1]
+    print(io, "   on grid: \n")
+    show(io, mime, domain(m))
+    return print(io, "\n   )\n")
+end
+
+skymodel(m::AbstractSkyModel) = getfield(m, :f)
+
+
+function observe(m::AbstractSkyModel, array::VisTable)
+    return ObservedSkyModel(m, array), NamedDist(set_prior(m, array))
+end
+
+function domain(m::AbstractSkyModel; kwargs...)
+    return getfield(m, :grid)
+end
+
+"""
+    idealmaps(D, m::AbstractSkyModel, x)
+
+Computes the ideal non-corrupted visibilities of the sky model `m` given the model parameters `x`.
+"""
+function idealmaps(::VisData, m::AbstractSkyModel, x)
+    skym = skymodel(m, x.sky)
+    vis = visibilitymap(skym, domain(m))
+    return zero(real(eltype(vis))), vis
+end
+
+
+function idealmaps(::DualData, m::AbstractSkyModel, x)
+    skym = skymodel(m, x.sky)
+    # We include this special method to sometime optimize the dualmap computation
+    # for specific sky models
+    img, vis = forward_dualmap(skym, domain(m))
+    return img, vis
+end
+
+function forward_dualmap(skym::AbstractModel, grid::VLBISkyModels.AbstractFourierDualDomain)
+    dm = dualmap(skym, grid)
+    return ComradeBase.imgmap(dm), ComradeBase.vismap(dm)
+end
+
+function forward_dualmap(skym::ContinuousImage, grid::VLBISkyModels.AbstractFourierDualDomain)
+    VLBISkyModels.checkgrid(axisdims(skym), ComradeBase.imgdomain(grid))
+    img = VLBISkyModels.make_map(skym)
+    return img, visibilitymap(skym, grid)
+end
+
+
+function forward_dualmap(skym::VLBISkyModels.AddModel{<:ContinuousImage}, grid::VLBISkyModels.AbstractFourierDualDomain)
+    VLBISkyModels.checkgrid(axisdims(skym.m1), ComradeBase.imgdomain(grid))
+    img = VLBISkyModels.make_map(skym.m1)
+    img2 = intensitymap(skym.m2, grid)
+    img2 .+= img #copy into this one because img will alias otherwise
+    return img, visibilitymap(skym, grid)
+end
+
+forward_dualmap(m::VLBISkyModels.AddModel{M1, <:ContinuousImage}, grid::VLBISkyModels.AbstractFourierDualDomain) where {M1} =
+    forward_dualmap(swap(m), grid)
+
+
+function skymodel(m::AbstractSkyModel, x)
+    return m.f(x, _imagegrid(m.grid), m.metadata)
+end
+
+_imagegrid(g::ComradeBase.AbstractDualDomain) = ComradeBase.imgdomain(g)
+_imagegrid(g) = g
+
+function set_prior(m::AbstractSkyModel, array::VisTable)
+    return getfield(m, :prior)
+end
+
+struct ObservedSkyModel{F, G <: VLBISkyModels.AbstractDomain, M} <: AbstractSkyModel
+    f::F
+    grid::G
+    metadata::M
+end
+
+
+include("models.jl")
+include("fixed.jl")
+include("multi.jl")
+include("macro.jl")

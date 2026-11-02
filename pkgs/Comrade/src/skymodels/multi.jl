@@ -1,0 +1,80 @@
+export MultiSkyModel
+
+"""
+    MultiSkyModel(skymodels::NamedTuple)
+
+Create a sky model that is a collection of multiple components. This is useful when
+you, e.g., want to decompose the sky into multiple grids, such as for wide-field imaging
+where the is a core component and a very far away component. 
+
+# Arguments
+ - `skymodels` : A named tuple of sky models, where each model is a [`SkyModel`](@ref).
+
+# Example
+```julia
+julia> s1 = SkyModel(...)
+julia> s2 = SkyModel(...)
+julia> stot = MultiSkyModel((core = m1, far = m2))
+julia> skymodel(stot, x)
+(core = ..., far = ...)
+```
+"""
+struct MultiSkyModel{N, T} <: AbstractSkyModel
+    skymodels::NamedTuple{N, T}
+end
+
+function ObservedSkyModel(m::MultiSkyModel, arr::VisTable)
+    skymodels = map(m.skymodels) do sm
+        ObservedSkyModel(sm, arr)
+    end
+    return MultiSkyModel(skymodels)
+end
+
+function set_prior(m::MultiSkyModel, array::VisTable)
+    prs = map(m.skymodels) do sm
+        set_prior(sm, array)
+    end
+    return prs
+end
+
+function idealmaps(d::VisData, m::MultiSkyModel{N}, x) where {N}
+    return _multi_idealmaps(d, m, x)
+end
+
+function idealmaps(d::DualData, m::MultiSkyModel{N}, x) where {N}
+    return _multi_idealmaps(d, m, x)
+end
+
+
+function _multi_idealmaps(d::ComradeDataType, m::MultiSkyModel{N}, x) where {N}
+    sm = m.skymodels
+    maps = map(N) do n
+        Base.@_inline_meta
+        idealmaps(d, getproperty(sm, n), (; sky = getproperty(x.sky, n)))
+    end
+    # The components share one visibility domain, so their values add without comparing dims.
+    viss = map(last, maps)
+    vis = IntensityMap(reduce(+, map(baseimage, viss)), axisdims(first(viss)))
+    return map(first, maps), vis
+end
+
+function domain(m::MultiSkyModel)
+    return map(m.skymodels) do sm
+        domain(sm)
+    end
+end
+
+function skymodel(m::MultiSkyModel{N}, x) where {N}
+    sm = m.skymodels
+    skyms = map(N) do n
+        Base.@_inline_meta
+        skymodel(getproperty(sm, n), getproperty(x, n))
+    end
+    return NamedTuple{N}(skyms)
+end
+
+function skymodel(m::MultiSkyModel)
+    return map(m.skymodels) do sm
+        skymodel(sm)
+    end
+end
