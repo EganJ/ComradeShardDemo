@@ -60,14 +60,21 @@ snapshot above, the default case gives the same log density, gradient errors and
 NDEV=8 NT=16 ./run.sh                      # 8 forced host CPU devices
 AVG=none NPIX=128 NT=16 FRAMES=count NOPT=20 ./run.sh
 GPU=1 NT=16 ./run.sh                       # every visible GPU (multi-GPU node)
+BACKEND=tpu NT=16 ./run.sh                 # every TPU core
+BACKEND=trainium NT=16 ./run.sh            # every Neuron core
 ```
 
 `run.sh` sets the following, then runs `julia -t $JT --project=. main.jl` under a timeout:
 
 - `JULIA_LOAD_PATH`
 - `XLA_FLAGS=--xla_force_host_platform_device_count=$NDEV` and `CUDA_VISIBLE_DEVICES=""` for
-  CPU runs
-- `DEMO_BACKEND`
+  `BACKEND=cpu` (the default); `XLA_FLAGS=$ACCEL_XLA_FLAGS` for `gpu`, `tpu` and `trainium`
+- `DEMO_BACKEND`, the Reactant backend `main.jl` runs on
+
+Reactant downloads libtpu and the Neuron PJRT plugin when it finds a TPU or a `/dev/neuron*`
+device. If the requested backend has no devices, Reactant stops with "No functional client
+was found". The demo computes in Float64 and complex128; TPU and Trainium runs have not been
+tried, and those devices may not compile 64-bit FFTs.
 
 Reactant must use the IFRT runtime; `LocalPreferences.toml` sets `xla_runtime = "IFRT"`.
 The script uses every device in `Reactant.devices()`, and `NT` must be a multiple of the
