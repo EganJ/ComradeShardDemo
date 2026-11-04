@@ -2,7 +2,7 @@
 
 julia_version = "1.13.3"
 manifest_format = "2.1"
-project_hash = "65f94f85a297cdba8052769a8e83ddc6762353eb"
+project_hash = "5815764a47e8ca9aa5689c10206b74ea50c3d274"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -357,12 +357,13 @@ weakdeps = ["InverseFunctions"]
 deps = ["AbstractMCMC", "Accessors", "Adapt", "ChainRulesCore", "ComradeBase", "DelimitedFiles", "DensityInterface", "DimensionalData", "Distributions", "DocStringExtensions", "EnzymeCore", "LinearAlgebra", "LogDensityProblems", "PaddedViews", "ParameterHandling", "PolarizedTypes", "PrettyTables", "Printf", "ProbabilityTransports", "Random", "Reexport", "Serialization", "SparseArrays", "SpecialFunctions", "StaticArraysCore", "Statistics", "StatsBase", "StructArrays", "TransformVariables", "VLBIImagePriors", "VLBIInstrumentModels", "VLBILikelihoods", "VLBISkyModels"]
 path = "pkgs/Comrade"
 uuid = "99d987ce-9a1e-4df8-bc0b-1ea019aa547b"
-version = "0.11.33"
+version = "0.11.34"
 
     [deps.Comrade.extensions]
     ComradeAdvancedHMCExt = "AdvancedHMC"
     ComradeDynestyExt = "Dynesty"
     ComradeEnzymeExt = "Enzyme"
+    ComradeMCMCDiagnosticToolsExt = "MCMCDiagnosticTools"
     ComradeMakieExt = "Makie"
     ComradeOptimizationExt = "Optimization"
     ComradePigeonsExt = "Pigeons"
@@ -372,6 +373,7 @@ version = "0.11.33"
     AdvancedHMC = "0bf59076-c3b1-5ca4-86bd-e02cd72cde3d"
     Dynesty = "eb527566-0f3e-4aab-bb5f-9d2e403dba70"
     Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
+    MCMCDiagnosticTools = "be115224-59cd-429b-ad48-344e309966f0"
     Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
     Optimization = "7f7a1694-90dd-40f0-9382-eb1efda571ba"
     Pigeons = "0eb8d820-af6a-4919-95ae-11206f830c31"

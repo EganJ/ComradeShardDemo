@@ -27,31 +27,32 @@ function _skydomain(d::StructuredDomain, executor)
     )
 end
 
-function VIM.dirty_image(fov::Real, npix::Int, t::VisTable)
-    keep = _dirtyvalues(t)
-    return _dirty(fov, npix, t, keep, baseimage(measurement(t))[keep])
+function VIM.dirty_image(t::VisTable, grid::ComradeBase.AbstractRectiGrid)
+    keep = _dirtyvalues(t, grid)
+    return _dirty(grid, t, keep, baseimage(measurement(t))[keep])
 end
 
-function VIM.dirty_beam(fov::Real, npix::Int, t::VisTable)
-    keep = _dirtyvalues(t)
-    return _dirty(fov, npix, t, keep, fill(complex(oneunit(fov), zero(fov)), length(keep)))
+function VIM.dirty_beam(t::VisTable, grid::ComradeBase.AbstractRectiGrid)
+    keep = _dirtyvalues(t, grid)
+    return _dirty(grid, t, keep, fill(oneunit(eltype(measurement(t))), length(keep)))
 end
 
-function _dirtyvalues(t::VisTable)
+function _dirtyvalues(t::VisTable, grid)
+    ndims(grid) == 2 ||
+        throw(ArgumentError("a dirty image is formed on a two-dimensional image grid, got one with dimensions $(DD.name(DD.dims(grid)))"))
     eltype(measurement(t)) <: Complex ||
         throw(ArgumentError("a dirty image is formed from a table of complex visibilities, got one of $(eltype(measurement(t)))"))
     return _measuredvalues(t)
 end
 
 # Each baseline and its reflection, with the conjugate visibility, so the transform is real.
-function _dirty(fov, npix, t, keep, vis)
+function _dirty(g, t, keep, vis)
     d = domain(t)
     U, V = d.U[keep], d.V[keep]
     (; Ti, Fr) = _measuredpoints(t)
     points = StructuredDomain((U = vcat(U, -U), V = vcat(V, -V), Ti = vcat(Ti, Ti), Fr = vcat(Fr, Fr)))
-    g = spatialgrid(fov, fov, npix, npix)
     plr = VLBISkyModels.reverse_plan(FourierDualDomain(g, points, NFFTAlg()))
-    m = plr.plan * (conj.(vcat(vis, conj.(vis))) .* plr.phases)./npix^2
+    m = plr.plan * (conj.(vcat(vis, conj.(vis))) .* plr.phases) ./ prod(size(g))
     return IntensityMap(real.(m), g)
 end
 

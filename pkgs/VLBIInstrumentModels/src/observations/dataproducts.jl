@@ -12,7 +12,7 @@ struct ClosurePhases end
     LogClosureAmplitudes()
 
 The kind of a [`ClosureTable`](@ref) of log closure amplitudes; see
-[`log_closure_amplitudes`](@ref).
+[`logclosure_amplitudes`](@ref).
 """
 struct LogClosureAmplitudes end
 
@@ -31,7 +31,7 @@ The file must begin with a commented header naming the columns, e.g.
 
 Columns are matched by name (case-insensitive), so the order of fields and the
 relative position of the D-term and FR blocks are flexible. `X, Y, Z` are
-ignored. The result can be passed to [`reset_mounts!`](@ref).
+ignored. The result can be passed to [`reset_mounts`](@ref).
 """
 function load_array_txt(path::AbstractString)
     # Aliases for column names we care about. Matching is case-insensitive.

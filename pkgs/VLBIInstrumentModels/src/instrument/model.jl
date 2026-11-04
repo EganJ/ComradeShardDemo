@@ -127,10 +127,11 @@ from the station's `feeds`, its `feed_angles` and the feed rotation of its `moun
 # Self-calibrated station phase
 
 With `selfcal = true`, the model adds the instrument parameter `selfcal_residual`: one angle
-per station and data time, with a prior uniform on the circle. In each group of stations that
-baselines link at one time and frequency, the station with the largest total data weight
-`Σ 1/σ²` is the reference, and its residual is fixed to 0. The priors of all other parameters
-are those their terms give.
+per station and data time, with prior `WrappedNormal(0, 2π)`, whose density differs from the
+uniform density on the circle by a relative 2exp(-2π²) ≈ 5e-9 at most. In each group of
+stations that baselines link at one time and frequency, the station with the largest total
+data weight `Σ 1/σ²` is the reference, and its residual is fixed to 0. The priors of all
+other parameters are those their terms give.
 
 `φ̂` is the phase of the leading eigenvector of each group's Hermitian station matrix
 ```
@@ -140,13 +141,13 @@ A_ii = Σ_j Σ_p |M_ij,p|² / σ²_ij,p
 where `V` and `σ` are the data and their noise, `M` the model visibilities without the
 station phase, and `p` runs over the correlation products. The off-diagonal part is the
 phase-dependent term of the Gaussian log-likelihood; the diagonal makes `A` positive
-semidefinite when the model matches the data. The eigenvector is approximated by the column
-of `A^64`, computed by six squarings, at the reference station, so `φ̂` is zero there.
+semidefinite when the model matches the data. The eigenvector is approximated by `A^32 e_r`,
+32 power iterations from the unit vector `e_r` of the reference station, so `φ̂` is zero there.
 
 `φ̂` depends on the sky and the other instrument parameters but not on the residual, so the
 change of variables from `φ` to the residual has unit Jacobian. Because the prior is uniform
 on the circle, the prior of `φ` does not depend on `φ̂`, and the posterior is that of a uniform
-station phase. The residual is a coordinate defined with the data, not a model parameter:
+station phase. The residual is the station phase in coordinates that depend on the data, so
 compare or reuse draws through `φ` ([`selfcal_phase`](@ref)). The model needs the data, so it
 binds only to one table of complex visibilities or coherencies.
 

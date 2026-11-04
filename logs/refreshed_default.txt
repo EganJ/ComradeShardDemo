@@ -1,0 +1,40 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1793817372.202663 3133576 pjrt_client.cc:589] PjRt-IFRT device count: total=4, addressable=4
+I0000 00:00:1793817372.202700 3133576 pjrt_client.cc:593] Addressable PjRt-IFRT device: CpuDevice(id=0)
+I0000 00:00:1793817372.202702 3133576 pjrt_client.cc:593] Addressable PjRt-IFRT device: CpuDevice(id=1)
+I0000 00:00:1793817372.202702 3133576 pjrt_client.cc:593] Addressable PjRt-IFRT device: CpuDevice(id=2)
+I0000 00:00:1793817372.202703 3133576 pjrt_client.cc:593] Addressable PjRt-IFRT device: CpuDevice(id=3)
+backend = cpu, devices = 4 (Reactant.XLA.IFRT.Device), threads = 8
+NPIX = 32, NT = 8, AVG = scan, FRAMES = time, NEVAL = 20, MODES = cpu,single,shard
+[12.3 s | RSS 1.82 GiB, peak 1.92 GiB] loaded 274 visibilities
+[27.1 s | RSS 1.97 GiB, peak 1.97 GiB] posterior: 274 visibilities, 8 frames of 32×32, 8428 parameters
+[84.6 s | RSS 2.17 GiB, peak 2.28 GiB] CPU first calls: logdensity 569.1 ms, gradient 56.89 s (includes Julia/Enzyme compilation); logdensity = -1.4811697561353076e7
+[85.0 s | RSS 2.17 GiB, peak 2.28 GiB] CPU: logdensity 384.2 µs (min 343.0 µs), gradient 1.26 ms (min 1.16 ms)
+[150.4 s | RSS 2.67 GiB, peak 2.67 GiB] 1 device: compiled logdensity in 45.03 s
+[163.6 s | RSS 2.74 GiB, peak 2.74 GiB] 1 device: compiled gradient in 13.27 s
+[164.3 s | RSS 2.75 GiB, peak 2.75 GiB] 1 device: logdensity = -1.481169756241944e7, rel. error vs CPU = 7.199474223110646e-11; gradient rel. error (2-norm) = 2.5692869983179697e-10, max abs = 0.0006186924874782562
+[164.5 s | RSS 2.75 GiB, peak 2.75 GiB] 1 device: logdensity 297.0 µs (min 237.4 µs), gradient 756.0 µs (min 661.9 µs)
+[175.0 s | RSS 2.78 GiB, peak 2.78 GiB] sharded posterior placed in 10.21 s
+W0000 00:00:1793817606.699951 3133576 shardy_xla_pass.cc:431] Module contains sdy shardings or meshes in frontend_attributes even when HloShardingV3 is enabled. This is probably due to stale model export, try re-exporting the model on HEAD (with HloShardingV3 enabled). Disabling HloShardingV3 here to prevent conflicts during Shardy import
+device arrays in the posterior: 24, all with a sharding: true
+data on the devices: size (400, 1) (host 274 visibilities, padded per device)
+  device 1 holds rows 1:100 of the data
+  device 2 holds rows 101:200 of the data
+  device 3 holds rows 201:300 of the data
+  device 4 holds rows 301:400 of the data
+[191.2 s | RSS 2.91 GiB, peak 2.91 GiB] 4 devices: compiled logdensity in 12.89 s
+W0000 00:00:1793817617.437551 3133576 shardy_xla_pass.cc:431] Module contains sdy shardings or meshes in frontend_attributes even when HloShardingV3 is enabled. This is probably due to stale model export, try re-exporting the model on HEAD (with HloShardingV3 enabled). Disabling HloShardingV3 here to prevent conflicts during Shardy import
+[201.6 s | RSS 2.97 GiB, peak 2.97 GiB] 4 devices: compiled gradient in 10.41 s
+[202.3 s | RSS 2.98 GiB, peak 2.98 GiB] 4 devices: logdensity = -1.4811697562419448e7, rel. error vs CPU = 7.199524525113952e-11; gradient rel. error (2-norm) = 2.5693011252838077e-10, max abs = 0.0006187050603330135
+[202.9 s | RSS 2.98 GiB, peak 2.98 GiB] 4 devices: logdensity 9.02 ms (min 7.1 ms), gradient 9.72 ms (min 8.56 ms)
+W0000 00:00:1793817621.444366 3133576 shardy_xla_pass.cc:431] Module contains sdy shardings or meshes in frontend_attributes even when HloShardingV3 is enabled. This is probably due to stale model export, try re-exporting the model on HEAD (with HloShardingV3 enabled). Disabling HloShardingV3 here to prevent conflicts during Shardy import
+W0000 00:00:1793817623.923017 3133576 shardy_xla_pass.cc:431] Module contains sdy shardings or meshes in frontend_attributes even when HloShardingV3 is enabled. This is probably due to stale model export, try re-exporting the model on HEAD (with HloShardingV3 enabled). Disabling HloShardingV3 here to prevent conflicts during Shardy import
+partitioned HLO collectives, logdensity: (all_reduce = 1, all_gather = 0, reduce_scatter = 0, all_to_all = 0, collective_permute = 3, var"while" = 0)
+partitioned HLO collectives, gradient:   (all_reduce = 1, all_gather = 0, reduce_scatter = 0, all_to_all = 0, collective_permute = 6, var"while" = 0)
+arrays of the per-device data length [100, ...] in the partitioned gradient HLO: 290; of the full length [400, ...]: 0
+
+SUMMARY (median of 20 calls; NPIX = 32, NT = 8, 274 visibilities, 8428 parameters)
+CPU (no Reactant)      compile ld     NaN s, grad     NaN s | logdensity  384.2 µs | gradient   1.26 ms
+Reactant, 1 device     compile ld   45.03 s, grad   13.27 s | logdensity  297.0 µs | gradient  756.0 µs, rel. err ld 7.2e-11, grad 2.6e-10
+Reactant, 4 devices    compile ld   12.89 s, grad   10.41 s | logdensity   9.02 ms | gradient   9.72 ms, rel. err ld 7.2e-11, grad 2.6e-10
+[207.8 s | RSS 3.01 GiB, peak 3.01 GiB] done

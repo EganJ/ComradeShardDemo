@@ -1,10 +1,10 @@
-export ClosureTable, closure_phases, log_closure_amplitudes
+export ClosureTable, closure_phases, logclosure_amplitudes
 
 """
     ClosureTable
 
 Closure phases or log closure amplitudes formed from a [`VisTable`](@ref) of visibilities.
-Built by [`closure_phases`](@ref) and [`log_closure_amplitudes`](@ref).
+Built by [`closure_phases`](@ref) and [`logclosure_amplitudes`](@ref).
 
 Each closure combines the visibilities of one time stamp and one channel. Its value is
 `design * x`, where `x` is the phase (closure phases) or the log amplitude (log closure
@@ -52,7 +52,7 @@ triangles; an incomplete one can also give longer cycles.
 closure_phases(t::VisTable) = _closuretable(ClosurePhases(), t)
 
 """
-    log_closure_amplitudes(t::VisTable)
+    logclosure_amplitudes(t::VisTable)
 
 An independent set of log closure amplitudes of the visibilities in `t`, as a
 [`ClosureTable`](@ref). At each time stamp and channel, every connected piece of the baseline
@@ -61,7 +61,7 @@ odd cycle. Each comes from one baseline outside the spanning forest of highest
 signal-to-noise ratio: an even cycle closed by the forest gives alternating signs; an odd one
 is joined to a fixed odd cycle of the piece through the forest.
 """
-log_closure_amplitudes(t::VisTable) = _closuretable(LogClosureAmplitudes(), t)
+logclosure_amplitudes(t::VisTable) = _closuretable(LogClosureAmplitudes(), t)
 
 # `atan`, not `angle`: Reactant has no `angle` for traced numbers.
 _closurevalue(::ClosurePhases, V) = atan(imag(V), real(V))

@@ -91,11 +91,11 @@ intm = InstrumentModel(G)
 ## Simulated data on the real coverage
 
 rng = Xoshiro(17)
-post_sim = VLBIPosterior(skym, intm, tab; admode = nothing)
+post_sim = VLBIPosterior(tab; sky = skym, instrument = intm, admode = nothing)
 θ0 = prior_sample(rng, post_sim)
 θtrue = (sky = merge(θ0.sky, (σimg = 0.3,)), instrument = θ0.instrument)
 dvis = only(simulate_observation(rng, post_sim, θtrue))
-post_cpu = VLBIPosterior(skym, intm, dvis; admode = nothing)
+post_cpu = VLBIPosterior(dvis; sky = skym, instrument = intm, admode = nothing)
 tcpu = asflat(post_cpu)
 x0 = prior_sample(Xoshiro(41), tcpu)
 stamp("posterior: $(length(measurement(dvis))) visibilities, $NT frames of $(NPIX)×$NPIX, $(dimension(tcpu)) parameters")

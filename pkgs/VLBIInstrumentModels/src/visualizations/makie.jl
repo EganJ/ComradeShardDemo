@@ -28,7 +28,7 @@ The other keywords are attributes of the plot. Needs a Makie backend.
 
 # Examples
 ```julia-repl
-julia> fig, ax, p = fieldplot(log_closure_amplitudes(t), :uvdist, :measwnoise)
+julia> fig, ax, p = fieldplot(logclosure_amplitudes(t), :uvdist, :measwnoise)
 
 julia> fieldplot!(ax, model, :uvdist, :measurement; color = :black, label = "Model")
 ```

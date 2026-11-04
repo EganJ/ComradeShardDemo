@@ -1,5 +1,5 @@
 export ArrayInfo, Source, VisTable, Correlation, Correlations, IPol, amplitudes, weight, info, stations, baselines, drop,
-    measurement, noise, domain, sites, beamsize, flag, add_fractional_noise, reset_mounts!
+    measurement, noise, domain, sites, beamsize, flag, add_fractional_noise, reset_mounts
 
 using PolarizedTypes: IPol
 
@@ -709,16 +709,18 @@ function beamsize(t::VisTable)
 end
 
 """
-    reset_mounts!(t::VisTable, overrides)
-    reset_mounts!(t::VisTable, file::AbstractString)
+    reset_mounts(t::VisTable, overrides)
+    reset_mounts(t::VisTable, file::AbstractString)
 
-Updates the station table of `t` in place from a per-station `overrides` dict, as made by
-[`load_array_txt`](@ref). Each entry is a `Symbol => NamedTuple` with any of the keys
-`fr_parallactic` and `fr_elevation` (the mount becomes `Mount(fr_parallactic, fr_elevation)`)
-and `fr_offset` (every feed's receptor angle); other keys are not read.
+`t` with its station table updated from a per-station `overrides` dict, as made by
+[`load_array_txt`](@ref); `t` itself is unchanged. Each entry is a `Symbol => NamedTuple` with
+any of the keys `fr_parallactic` and `fr_elevation` (the mount becomes
+`Mount(fr_parallactic, fr_elevation)`) and `fr_offset` (every feed's receptor angle); other
+keys are not read.
 """
-function reset_mounts!(t::VisTable, overrides)
-    st = info(t).stations
+function reset_mounts(t::VisTable, overrides)
+    a = info(t)
+    st = copy(a.stations)
     for i in eachindex(st.name)
         ov = get(overrides, st.name[i], nothing)
         isnothing(ov) && continue
@@ -729,9 +731,11 @@ function reset_mounts!(t::VisTable, overrides)
         end
         haskey(ov, :fr_offset) && (st.feed_angles[i] = map(_ -> Float64(ov[:fr_offset]), st.feed_angles[i]))
     end
-    return t
+    newinfo = ArrayInfo(st, a.channels, a.scans, a.tracks, a.source, a.epoch)
+    d = DD.rebuild(domain(t); header = newinfo)
+    return VisTable(t.pol, IntensityMap(baseimage(measurement(t)), d), IntensityMap(baseimage(weight(t)), d), stations(t))
 end
-reset_mounts!(t::VisTable, file::AbstractString) = reset_mounts!(t, load_array_txt(file))
+reset_mounts(t::VisTable, file::AbstractString) = reset_mounts(t, load_array_txt(file))
 
 """
     amplitudes(t::VisTable; debias = false)

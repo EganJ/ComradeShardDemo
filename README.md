@@ -33,6 +33,26 @@ version.
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
 ```
 
+`./refresh.sh` recopies `pkgs/` from the dev checkouts (`$JULIA_DEV`, default `~/.julia/dev`)
+and prints where each copy comes from. The copies are of the working trees:
+
+| package | branch | commit | uncommitted files included |
+|---|---|---|---|
+| Comrade | `ptiede-redesign` | `fe66b844` | |
+| ComradeBase | `ptiede-shard` | `e1f9fc4` | `Project.toml` (version 0.10.0) |
+| VLBISkyModels | `ptiede-shard` | `50fd5f4` | |
+| VLBIInstrumentModels | `redesign` | `78c4f48` | |
+| VLBIImagePriors | `main` | `cfb7b01` | `Project.toml`, `src/markovrf/cache.jl`, `src/markovrf/conditional.jl` |
+| VLBILikelihoods | `main` | `5c9f9ca` | `Project.toml` and 7 files in `src` |
+| VLBIData | `comradebase-0.10` | `00000000df` | `Project.toml`, `README.md`, `ext/ComradeBaseExt.jl`; `ext/ComradeExt.jl` deleted |
+| InterferometricModels | `comradebase-0.10` | `00000000b` | `Project.toml` |
+| FieldDimArrays | `reactant-hoist` | `398d08d` | |
+| ReactantCore | | | `lib/ReactantCore` of the Reactant commit in `Manifest.toml` |
+
+The timings under "Measured here" were taken with the snapshot of 2026-11-02. With the
+snapshot above, the default case gives the same log density, gradient errors and collectives
+(`logs/refreshed_default.txt`).
+
 ## Running
 
 ```sh
@@ -184,12 +204,14 @@ more data.
 
 - `main.jl`: the demo.
 - `run.sh`: environment and launch.
+- `refresh.sh`: recopies `pkgs/` from the dev checkouts.
 - `Project.toml`, `Manifest.toml`: the environment, with the packages in `pkgs/` by relative
   path and Reactant from GitHub `main`.
 - `pkgs/`: source snapshots (`src`, `ext`, `Project.toml`, `LICENSE`, `README.md`) of
   Comrade, ComradeBase, VLBISkyModels, VLBIInstrumentModels, VLBIImagePriors,
-  VLBILikelihoods, VLBIData, InterferometricModels, FieldDimArrays and ReactantCore, as run
-  for the numbers above.
+  VLBILikelihoods, VLBIData, InterferometricModels, FieldDimArrays and ReactantCore; their
+  sources are listed under Setup.
 - `LocalPreferences.toml`: the IFRT runtime preference.
-- `logs/`: the runs the table comes from (`final_default.txt` is the default configuration).
+- `logs/`: the runs the table comes from (`final_default.txt` is the default configuration;
+  `refreshed_default.txt` is the same case with the current `pkgs/`).
 - `out_*.hlo`: the partitioned HLO written by a run with `HLO=1` (not tracked).

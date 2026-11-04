@@ -9,7 +9,7 @@ selection of data points based on these criteria and forms the base array for in
 
 To select a subset of the data based on a specifid site, time and frequency you can use
 ```
-sarr[S=:ALMA, Ti=1:10, Fr=1:10]
+sarr[Ant=:ALMA, Ti=1:10, Fr=1:10]
 ```
 which will grab the first 10 time and frequency points for the ALMA site.
 
@@ -128,18 +128,6 @@ function site(arr::SiteArray, p)
 end
 
 
-function time(arr::SiteArray, a::Union{AbstractInterval, Real})
-    inds = findall(in(a), times(arr))
-    nd = view(parent(arr), inds)
-    return SiteArray(nd, view(times(arr), inds), view(frequencies(arr), inds), view(sites(arr), inds))
-end
-
-function frequency(arr::SiteArray, a::Union{AbstractInterval, Real})
-    inds = findall(in(a), times(arr))
-    nd = view(parent(arr), inds)
-    return SiteArray(nd, view(times(arr), inds), view(frequencies(arr), inds), view(sites(arr), inds))
-end
-
 _equalorin(x::T, y::T) where {T} = x == y
 _equalorin(x::Real, y) = x ∈ y
 _equalorin(x, y::Real) = y ∈ x
@@ -148,11 +136,11 @@ _equalorin(x, ::typeof(Base.Colon())) = true
 _equalorin(::typeof(Base.Colon()), x) = true
 const Indexable = Union{Integer, AbstractArray{<:Integer}, BitArray}
 
-function Base.getindex(arr::SiteArray; Fr = Base.Colon(), S = Base.Colon(), Ti = Base.Colon())
+function Base.getindex(arr::SiteArray; Fr = Base.Colon(), Ant = Base.Colon(), Ti = Base.Colon())
     Fr2 = isa(Fr, Indexable) ? unique(arr.frequencies)[Fr] : Fr
-    S2 = isa(S, Indexable) ? unique(arr.sites)[S] : S
+    Ant2 = isa(Ant, Indexable) ? unique(arr.sites)[Ant] : Ant
     Ti2 = isa(Ti, Indexable) ? unique(arr.times)[Ti] : Ti
-    inds = findall(i -> (_equalorin(S2, sites(arr)[i])&&_equalorin(Ti2, times(arr)[i])&&_equalorin(Fr2, frequencies(arr)[i])), eachindex(arr))
+    inds = findall(i -> (_equalorin(Ant2, sites(arr)[i])&&_equalorin(Ti2, times(arr)[i])&&_equalorin(Fr2, frequencies(arr)[i])), eachindex(arr))
     nd = view(parent(arr), inds)
     return SiteArray(nd, view(times(arr), inds), view(frequencies(arr), inds), view(sites(arr), inds))
 end
