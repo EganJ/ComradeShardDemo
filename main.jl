@@ -4,6 +4,8 @@
 #   NPIX   pixels per side of each frame         (default 32)
 #   NT     number of movie frames                (default 2 × number of devices)
 #   DATA   "eht2017" (the coverage in data/) or "synthetic" (see synthetic.jl)  (default "eht2017")
+#   ARRAY  stations of the synthetic coverage: "eht2017" or "eht2022" (data/array_eht2022.txt)
+#                                                (default "eht2017")
 #   NDAYS, TINT, NIF, NCHAN  synthetic coverage: days, integration in s, IFs, channels per IF
 #                            (defaults 3, 10, 4, 10)
 #   FSHARD devices along Fr; the rest split Ti   (default 2 for synthetic data when it divides, else 1)
@@ -20,6 +22,9 @@ const NPIX = parse(Int, get(ENV, "NPIX", "32"))
 const DATASET = get(ENV, "DATA", "eht2017")
 DATASET in ("eht2017", "synthetic") || error("DATA must be eht2017 or synthetic, not $DATASET")
 const SYNTH = DATASET == "synthetic"
+const ARRAY = get(ENV, "ARRAY", "eht2017")
+ARRAY in ("eht2017", "eht2022") || error("ARRAY must be eht2017 or eht2022, not $ARRAY")
+SYNTH || ARRAY == "eht2017" || error("ARRAY = $ARRAY needs DATA=synthetic")
 const NDAYS = parse(Int, get(ENV, "NDAYS", "3"))
 const TINT = parse(Float64, get(ENV, "TINT", "10"))
 const NIF = parse(Int, get(ENV, "NIF", "4"))
@@ -52,7 +57,7 @@ end
 const T0 = time()
 
 println("backend = $BACKEND, devices = $NDEV ($(join(unique(string.(typeof.(DEVS))), ", "))), threads = $(Threads.nthreads())")
-println("DATA = $DATASET", SYNTH ? " (NDAYS = $NDAYS, TINT = $TINT s, NIF = $NIF, NCHAN = $NCHAN)" : "", ", mesh = $TSHARD (Ti) × $FSHARD (Fr)")
+println("DATA = $DATASET", SYNTH ? " (ARRAY = $ARRAY, NDAYS = $NDAYS, TINT = $TINT s, NIF = $NIF, NCHAN = $NCHAN)" : "", ", mesh = $TSHARD (Ti) × $FSHARD (Fr)")
 println("NPIX = $NPIX, NT = $NT, AVG = $AVG, FRAMES = $FRAMES, NEVAL = $NEVAL, MODES = $(join(MODES, ","))")
 NDEV % FSHARD == 0 || error("FSHARD = $FSHARD does not divide the $NDEV devices")
 SYNTH || FSHARD == 1 || error("FSHARD = $FSHARD needs DATA=synthetic; the EHT 2017 data have one channel")
@@ -66,7 +71,11 @@ uvd = VLBIFiles.load(VLBIFiles.UVData, joinpath(DATA, "SR1_M87_2017_096_lo_hops_
 tab = VisTable(uvd, IPol())
 if SYNTH
     include(joinpath(@__DIR__, "synthetic.jl"))
-    tab, ifedges = synthetic_table(tab; ndays = NDAYS, tint = TINT, nif = NIF, nchan = NCHAN)
+    # 2022 site codes of the 2017 stations, for the 2017 noise.
+    stations, aliases = ARRAY == "eht2022" ?
+        (read_array(joinpath(DATA, "array_eht2022.txt")), Dict(:AX => :AP, :MG => :AZ, :MM => :JC, :SW => :SM)) :
+        (nothing, Dict{Symbol, Symbol}())
+    tab, ifedges = synthetic_table(tab; ndays = NDAYS, tint = TINT, nif = NIF, nchan = NCHAN, stations, aliases)
 end
 tab = AVG == "scan" ? average(tab, ByScan()) : AVG == "none" ? tab : error("AVG must be scan or none")
 stamp("loaded $(length(measurement(tab))) visibilities ($(size(domain(tab))[1]) records × $(size(domain(tab))[2]) channels)")

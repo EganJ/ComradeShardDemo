@@ -17,6 +17,12 @@ The model:
     `NCHAN` channels each. The noise is each baseline's median 2017 noise scaled to the
     channel width and integration time. The defaults (3 days, 10 s, 4 × 10 channels) give
     124298 records × 40 channels = 4.97M visibilities; `NCHAN=32` gives 15.9M.
+  - `DATA=synthetic ARRAY=eht2022`: the same, with the 11 EHT 2022 sites in
+    `data/array_eht2022.txt` (adding GL, KT and NN; SP never sees M87) and every pair of them,
+    45 baselines with data: about 92.9k records per day, 11.1M visibilities at the defaults.
+    The noise of a baseline is the product of two station factors fitted to the 2017 baseline
+    noise (about 11% rms in log σ); GL, KT and NN get the median factor. The source, epoch
+    and noise level still come from the 2017 file.
 - The sky is a movie of `NT` frames of `NPIX × NPIX` pixels on a 150 μas field. Each frame
   has its own GMRF log-image (`corr_image_prior`, with its own correlation length) around a
   crescent whose position angle rotates over the observation. The frames are normalized to
@@ -72,6 +78,7 @@ AVG=none NPIX=128 NT=16 FRAMES=count NOPT=20 ./run.sh
 GPU=1 NT=16 ./run.sh                       # every visible GPU (multi-GPU node)
 DATA=synthetic GPU=1 NT=16 ./run.sh        # 4.97M visibilities over 3 days, 4 IFs, Ti × Fr mesh
 DATA=synthetic NDAYS=1 TINT=60 NIF=2 NCHAN=4 NT=4 ./run.sh   # 55k visibilities, quick CPU check
+DATA=synthetic ARRAY=eht2022 GPU=1 NT=16 ./run.sh             # EHT 2022 sites, 11.1M visibilities
 BACKEND=tpu NT=16 ./run.sh                 # every TPU core
 BACKEND=trainium NT=16 ./run.sh            # every Neuron core
 ```
@@ -95,6 +102,7 @@ device count.
 | variable | meaning | default |
 |---|---|---|
 | `DATA` | `eht2017` or `synthetic` | `eht2017` |
+| `ARRAY` | stations of the synthetic coverage: `eht2017` or `eht2022` | `eht2017` |
 | `NDAYS`, `TINT`, `NIF`, `NCHAN` | synthetic coverage: days, integration (s), IFs, channels per IF | 3, 10, 4, 10 |
 | `FSHARD` | devices along `Fr`; `NDEV / FSHARD` split `Ti` | 2 for synthetic data when `NIF` and the device count are even, else 1 |
 | `NPIX` | pixels per side of each frame | 32 |
@@ -226,6 +234,7 @@ more data.
 
 - `main.jl`: the demo.
 - `synthetic.jl`: the synthetic coverage for `DATA=synthetic`.
+- `data/array_eht2022.txt`: EHT 2022 station positions and mounts (ehtim array format).
 - `run.sh`: environment and launch.
 - `refresh.sh`: recopies `pkgs/` from the dev checkouts.
 - `Project.toml`, `Manifest.toml`: the environment, with the packages in `pkgs/` by relative

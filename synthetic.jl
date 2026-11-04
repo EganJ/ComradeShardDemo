@@ -26,32 +26,83 @@ function baseline_uv(r1, r2, H, δ)
 end
 
 """
-    synthetic_table(tab; ndays, tint, nif, nchan, elmin = 10, scanlen = 10, scangap = 2)
+    read_array(path)
 
-A Stokes I table with the stations, source and epoch of `tab` and zero visibilities.
+The stations of an ehtim array file: name, geocentric position in meters, `Mount(FR_PAR,
+FR_EL)`, circular feeds, and `FR_OFF` (degrees) as the angle of both feeds.
+"""
+function read_array(path)
+    rows = [split(l) for l in eachline(path) if !isempty(strip(l)) && !startswith(strip(l), "#")]
+    num(r, i) = parse(Float64, r[i])
+    return (
+        name = [Symbol(r[1]) for r in rows],
+        position = [[num(r, 2), num(r, 3), num(r, 4)] for r in rows],
+        mount = [Mount(num(r, 7), num(r, 8)) for r in rows],
+        feeds = [(RPol(), LPol()) for _ in rows],
+        feed_angles = [(deg2rad(num(r, 9)), deg2rad(num(r, 9))) for r in rows],
+    )
+end
 
-Records: every baseline that appears in `tab`, at integrations of `tint` seconds, in scans
-of `scanlen` minutes separated by `scangap` minutes, over `ndays` days from the epoch, at
-times when the source is at least `elmin` degrees above the horizon at both stations.
+# Per-station noise factors `f` with `σ ≈ f[a] * f[b]` on baseline `a`-`b`, fitted by least
+# squares to the log of each baseline's median noise in `tab`, by station name.
+function station_noise(tab)
+    ai, d = Comrade.info(tab), domain(tab)
+    σ = vec(Comrade.noise(tab))
+    pairs = unique(zip(d.ant1, d.ant2))
+    A = zeros(length(pairs), length(ai.stations.name))
+    y = [log(median(σ[(d.ant1 .== a) .& (d.ant2 .== b)])) for (a, b) in pairs]
+    for (k, (a, b)) in enumerate(pairs)
+        A[k, a] = A[k, b] = 1
+    end
+    used = findall(vec(any(!iszero, A; dims = 1)))
+    return Dict(zip(ai.stations.name[used], exp.(A[:, used] \ y)))
+end
+
+"""
+    synthetic_table(tab; ndays, tint, nif, nchan, stations = nothing, aliases = Dict(),
+                    elmin = 10, scanlen = 10, scangap = 2)
+
+A Stokes I table with the source and epoch of `tab` and zero visibilities.
+
+Stations: those of `tab`, or `stations` (columns as in [`read_array`](@ref)).
+
+Records: every baseline that appears in `tab`, or every pair of `stations`, at integrations
+of `tint` seconds, in scans of `scanlen` minutes separated by `scangap` minutes, over `ndays`
+days from the epoch, at times when the source is at least `elmin` degrees above the horizon
+at both stations.
 
 Channels: `nif` contiguous IFs of 2 GHz centered on the frequency of `tab`, each split into
 `nchan` channels.
 
-Noise: each baseline's median noise in `tab`, scaled by the square root of the ratios of
-bandwidth and integration time.
+Noise, scaled by the square root of the ratios of bandwidth and integration time: each
+baseline's median noise in `tab`; with `stations`, the product of the two stations' factors
+from [`station_noise`](@ref), where `aliases` maps a station name to its name in `tab` and
+stations absent from `tab` get the median factor.
 
 Returns the table and the IF edges `(lo, hi)` in Hz.
 """
-function synthetic_table(tab; ndays, tint, nif, nchan, elmin = 10.0, scanlen = 10.0, scangap = 2.0)
+function synthetic_table(
+        tab; ndays, tint, nif, nchan, stations = nothing, aliases = Dict{Symbol, Symbol}(),
+        elmin = 10.0, scanlen = 10.0, scangap = 2.0
+    )
     ai = Comrade.info(tab)
     d = domain(tab)
     length(ai.channels) == 1 || throw(ArgumentError("the template table must have one channel, not $(length(ai.channels))"))
-    pos = ai.stations.position
+    st = something(stations, ai.stations)
+    pos = st.position
     α, δ = deg2rad(ai.source.ra), deg2rad(ai.source.dec)
 
-    σ0 = vec(Comrade.noise(tab))
-    pairs = unique(zip(d.ant1, d.ant2))
-    σpair = Dict(p => median(σ0[(d.ant1 .== p[1]) .& (d.ant2 .== p[2])]) for p in pairs)
+    if isnothing(stations)
+        σ0 = vec(Comrade.noise(tab))
+        pairs = unique(zip(d.ant1, d.ant2))
+        σpair = Dict(p => median(σ0[(d.ant1 .== p[1]) .& (d.ant2 .== p[2])]) for p in pairs)
+    else
+        fs = station_noise(tab)
+        fmed = median(collect(values(fs)))
+        f = [get(fs, get(aliases, n, n), fmed) for n in st.name]
+        pairs = [(a, b) for a in eachindex(st.name) for b in (a + 1):lastindex(st.name)]
+        σpair = Dict((a, b) => f[a] * f[b] for (a, b) in pairs)
+    end
     tint0 = median(diff(sort!(unique(d.Ti)))) * 3600
 
     ν0 = only(ai.channels.frequency)
@@ -93,7 +144,7 @@ function synthetic_table(tab; ndays, tint, nif, nchan, elmin = 10.0, scanlen = 1
         stop = [maximum(scans.stop[days .== k]) for k in unique(days)],
     )
     info = ArrayInfo(;
-        stations = ai.stations, channels = (; frequency = freq, width = fill(width, length(freq))),
+        stations = st, channels = (; frequency = freq, width = fill(width, length(freq))),
         scans, tracks, source = ai.source, epoch = ai.epoch,
     )
     σ = repeat(σb, 1, length(freq))
