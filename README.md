@@ -1,26 +1,36 @@
 # Sharded Comrade posterior with Reactant
 
 `main.jl` builds a VLBI movie posterior, places it on every Reactant device with Comrade's
-`todevice(post, ShardLayout(mesh; Ti = :d))`, compiles the log density and its Enzyme
+`todevice(post, ShardLayout(mesh; Ti = :t))` (or `Ti = :t, Fr = :f` on a 2-D mesh), compiles the log density and its Enzyme
 reverse-mode gradient, checks both against the plain CPU path, and times them against one
 device and the CPU.
 
 The model:
 
-- EHT 2017 M87 coverage (`data/SR1_M87_2017_096_lo_hops_netcal_StokesI.uvfits`), either
-  scan-averaged (274 visibilities) or unaveraged (8645).
+- The coverage is one of:
+  - `DATA=eht2017` (default): EHT 2017 M87 coverage
+    (`data/SR1_M87_2017_096_lo_hops_netcal_StokesI.uvfits`), either scan-averaged (274
+    visibilities) or unaveraged (8645), one channel.
+  - `DATA=synthetic` (`synthetic.jl`): the same stations, source and epoch over `NDAYS` days,
+    every baseline of the 2017 data at `TINT`-second integrations in 10-minute scans (2-minute
+    gaps) while M87 is at least 10° up at both stations, and `NIF` contiguous 2 GHz IFs of
+    `NCHAN` channels each. The noise is each baseline's median 2017 noise scaled to the
+    channel width and integration time. The defaults (3 days, 10 s, 4 × 10 channels) give
+    124298 records × 40 channels = 4.97M visibilities; `NCHAN=32` gives 15.9M.
 - The sky is a movie of `NT` frames of `NPIX × NPIX` pixels on a 150 μas field. Each frame
   has its own GMRF log-image (`corr_image_prior`, with its own correlation length) around a
   crescent whose position angle rotates over the observation. The frames are normalized to
   0.6 Jy and drawn with a 3rd-order B-spline pulse.
 - The instrument is a complex gain per station and scan (`IIDSitePrior(ScanSeg(), …)`), with
   the phase referenced by `SensitiveReference`.
+- With `DATA=synthetic`, the image has one plane per IF, the movie scaled by `(ν/ν̄)^α` with a
+  spectral-index parameter `α`.
 - The data are simulated from a prior draw with thermal noise.
 - The log density and gradient are evaluated at a different prior draw.
 
-Sharding is over the movie frames (`Ti`). Each device holds `NT / ndevices` frames and the
-visibilities that fall in them, padded to a common length. The parameter vector is
-replicated.
+Sharding is over the movie frames (`Ti`) and, with `FSHARD > 1`, the IFs (`Fr`) on a
+`(NDEV / FSHARD) × FSHARD` mesh. Each device holds its frames and IFs and the visibilities
+that fall in them, padded to a common length. The parameter vector is replicated.
 
 ## Setup
 
@@ -60,6 +70,8 @@ snapshot above, the default case gives the same log density, gradient errors and
 NDEV=8 NT=16 ./run.sh                      # 8 forced host CPU devices
 AVG=none NPIX=128 NT=16 FRAMES=count NOPT=20 ./run.sh
 GPU=1 NT=16 ./run.sh                       # every visible GPU (multi-GPU node)
+DATA=synthetic GPU=1 NT=16 ./run.sh        # 4.97M visibilities over 3 days, 4 IFs, Ti × Fr mesh
+DATA=synthetic NDAYS=1 TINT=60 NIF=2 NCHAN=4 NT=4 ./run.sh   # 55k visibilities, quick CPU check
 BACKEND=tpu NT=16 ./run.sh                 # every TPU core
 BACKEND=trainium NT=16 ./run.sh            # every Neuron core
 ```
@@ -82,10 +94,13 @@ device count.
 
 | variable | meaning | default |
 |---|---|---|
+| `DATA` | `eht2017` or `synthetic` | `eht2017` |
+| `NDAYS`, `TINT`, `NIF`, `NCHAN` | synthetic coverage: days, integration (s), IFs, channels per IF | 3, 10, 4, 10 |
+| `FSHARD` | devices along `Fr`; `NDEV / FSHARD` split `Ti` | 2 for synthetic data when `NIF` and the device count are even, else 1 |
 | `NPIX` | pixels per side of each frame | 32 |
 | `NT` | number of frames | 2 × devices |
-| `AVG` | `scan` (scan-averaged) or `none` | `scan` |
-| `FRAMES` | `time`: frames of equal duration; `count`: equal numbers of visibilities | `time` |
+| `AVG` | `scan` (scan-averaged) or `none` | `scan`; `none` for synthetic data |
+| `FRAMES` | `time`: frames of equal duration; `count`: equal numbers of visibilities | `time`; `count` for synthetic data |
 | `MODES` | which of `cpu,single,shard` to run | all |
 | `NEVAL` | timed calls per measurement | 20 |
 | `HLO` | `1`: print the collectives of the partitioned XLA HLO, write `out_*.hlo` | 1 |
@@ -210,6 +225,7 @@ more data.
 ## Files
 
 - `main.jl`: the demo.
+- `synthetic.jl`: the synthetic coverage for `DATA=synthetic`.
 - `run.sh`: environment and launch.
 - `refresh.sh`: recopies `pkgs/` from the dev checkouts.
 - `Project.toml`, `Manifest.toml`: the environment, with the packages in `pkgs/` by relative

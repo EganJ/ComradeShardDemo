@@ -3,27 +3,41 @@
 # Problem size and stages are set by environment variables (see README.md):
 #   NPIX   pixels per side of each frame         (default 32)
 #   NT     number of movie frames                (default 2 × number of devices)
-#   AVG    "scan" (scan-averaged) or "none"      (default "scan")
+#   DATA   "eht2017" (the coverage in data/) or "synthetic" (see synthetic.jl)  (default "eht2017")
+#   NDAYS, TINT, NIF, NCHAN  synthetic coverage: days, integration in s, IFs, channels per IF
+#                            (defaults 3, 10, 4, 10)
+#   FSHARD devices along Fr; the rest split Ti   (default 2 for synthetic data when it divides, else 1)
+#   AVG    "scan" (scan-averaged) or "none"      (default "scan"; "none" for synthetic data)
 #   NEVAL  timed evaluations per measurement     (default 20)
 #   MODES  comma list of cpu,single,shard        (default "cpu,single,shard")
 #   HLO    "1" to inspect the partitioned XLA HLO of the sharded program (default "1")
 #   NOPT   Adam steps on the sharded posterior, 0 to skip (default 0)
 #   FRAMES "time" (frames of equal duration) or "count" (equal numbers of visibilities)
+#          (default "time"; "count" for synthetic data)
 
 const BACKEND = get(ENV, "DEMO_BACKEND", "cpu")
 const NPIX = parse(Int, get(ENV, "NPIX", "32"))
-const AVG = get(ENV, "AVG", "scan")
+const DATASET = get(ENV, "DATA", "eht2017")
+DATASET in ("eht2017", "synthetic") || error("DATA must be eht2017 or synthetic, not $DATASET")
+const SYNTH = DATASET == "synthetic"
+const NDAYS = parse(Int, get(ENV, "NDAYS", "3"))
+const TINT = parse(Float64, get(ENV, "TINT", "10"))
+const NIF = parse(Int, get(ENV, "NIF", "4"))
+const NCHAN = parse(Int, get(ENV, "NCHAN", "10"))
+const AVG = get(ENV, "AVG", SYNTH ? "none" : "scan")
 const NEVAL = parse(Int, get(ENV, "NEVAL", "20"))
 const MODES = split(get(ENV, "MODES", "cpu,single,shard"), ",")
 const HLO = get(ENV, "HLO", "1") == "1"
 const NOPT = parse(Int, get(ENV, "NOPT", "0"))
-const FRAMES = get(ENV, "FRAMES", "time")
+const FRAMES = get(ENV, "FRAMES", SYNTH ? "count" : "time")
 
 using Reactant
 Reactant.set_default_backend(BACKEND)
 const DEVS = vec(collect(Reactant.devices()))
 const NDEV = length(DEVS)
 const NT = parse(Int, get(ENV, "NT", string(2 * NDEV)))
+const FSHARD = parse(Int, get(ENV, "FSHARD", string(SYNTH && iseven(NIF) && iseven(NDEV) ? 2 : 1)))
+const TSHARD = NDEV ÷ FSHARD
 
 using Comrade, VLBIFiles, VLBIImagePriors, Distributions, Enzyme
 using Random, Statistics, LinearAlgebra
@@ -38,16 +52,24 @@ end
 const T0 = time()
 
 println("backend = $BACKEND, devices = $NDEV ($(join(unique(string.(typeof.(DEVS))), ", "))), threads = $(Threads.nthreads())")
+println("DATA = $DATASET", SYNTH ? " (NDAYS = $NDAYS, TINT = $TINT s, NIF = $NIF, NCHAN = $NCHAN)" : "", ", mesh = $TSHARD (Ti) × $FSHARD (Fr)")
 println("NPIX = $NPIX, NT = $NT, AVG = $AVG, FRAMES = $FRAMES, NEVAL = $NEVAL, MODES = $(join(MODES, ","))")
-NT % NDEV == 0 || error("NT = $NT frames do not split evenly over $NDEV devices")
+NDEV % FSHARD == 0 || error("FSHARD = $FSHARD does not divide the $NDEV devices")
+SYNTH || FSHARD == 1 || error("FSHARD = $FSHARD needs DATA=synthetic; the EHT 2017 data have one channel")
+NIF % FSHARD == 0 || error("NIF = $NIF IFs do not split evenly over FSHARD = $FSHARD devices")
+NT % TSHARD == 0 || error("NT = $NT frames do not split evenly over $TSHARD devices along Ti")
 
-## Data: EHT 2017 M87 coverage
+## Data: EHT 2017 M87 coverage, or synthetic coverage of the same stations
 
 const DATA = joinpath(@__DIR__, "data")
 uvd = VLBIFiles.load(VLBIFiles.UVData, joinpath(DATA, "SR1_M87_2017_096_lo_hops_netcal_StokesI.uvfits"))
 tab = VisTable(uvd, IPol())
+if SYNTH
+    include(joinpath(@__DIR__, "synthetic.jl"))
+    tab, ifedges = synthetic_table(tab; ndays = NDAYS, tint = TINT, nif = NIF, nchan = NCHAN)
+end
 tab = AVG == "scan" ? average(tab, ByScan()) : AVG == "none" ? tab : error("AVG must be scan or none")
-stamp("loaded $(length(measurement(tab))) visibilities")
+stamp("loaded $(length(measurement(tab))) visibilities ($(size(domain(tab))[1]) records × $(size(domain(tab))[2]) channels)")
 
 ## Sky: a movie, one GMRF-correlated log-image per frame around a rotating crescent
 
@@ -62,7 +84,8 @@ else
 end
 fov = μas2rad(150.0)
 g2 = spatialgrid(fov, fov, NPIX, NPIX)
-grid = g2 ⊗ frames(Ti, collect(edges[1:(end - 1)]), collect(edges[2:end]))
+gt = g2 ⊗ frames(Ti, collect(edges[1:(end - 1)]), collect(edges[2:end]))
+grid = SYNTH ? gt ⊗ frames(Fr, ifedges...) : gt
 
 crescent(ξ) = modify(RingTemplate(RadialGaussian(0.15), AzimuthalCosine(0.6, ξ)), Stretch(μas2rad(21.0)))
 pas = range(0.0, π / 2; length = NT)
@@ -74,12 +97,20 @@ function movie_sky(θ, grid, meta)
     δ = cat(map(ck -> reshape(ck.params, size(ck.params)..., 1), c)...; dims = 3)
     e = exp.(meta.logmean .+ σimg .* δ)
     img = meta.ftot .* e ./ sum(e; dims = (1, 2))
+    hasproperty(θ, :α) && (img = img .* reshape(meta.νrel .^ θ.α, 1, 1, 1, :))
     return ContinuousImage(IntensityMap(img, grid), BSplinePulse{3}())
 end
 
 cprior = corr_image_prior(g2, tab)
 prior = (c = ntuple(_ -> cprior, NT), σimg = VLBIExponential(0.5))
-skym = SkyModel(movie_sky, prior, grid; metadata = (; logmean, ftot = 0.6))
+metadata = (; logmean, ftot = 0.6)
+if SYNTH
+    # One image plane per IF, scaled by (ν / ν̄)^α.
+    νif = (ifedges[1] .+ ifedges[2]) ./ 2
+    prior = merge(prior, (; α = VLBIGaussian(-0.5, 0.5)))
+    metadata = merge(metadata, (; νrel = νif ./ mean(νif)))
+end
+skym = SkyModel(movie_sky, prior, grid; metadata)
 
 ## Instrument: complex gain per station and scan
 
@@ -195,8 +226,9 @@ function run_adam(tdev, ldc, x0, mesh, n)
 end
 
 if "shard" in MODES && NDEV > 1
-    mesh = Reactant.Sharding.Mesh(reshape(DEVS, NDEV), (:d,))
-    layout = ShardLayout(mesh; Ti = :d)
+    mesh = FSHARD == 1 ? Reactant.Sharding.Mesh(reshape(DEVS, NDEV), (:t,)) :
+        Reactant.Sharding.Mesh(reshape(DEVS, TSHARD, FSHARD), (:t, :f))
+    layout = FSHARD == 1 ? ShardLayout(mesh; Ti = :t) : ShardLayout(mesh; Ti = :t, Fr = :f)
     tp = @elapsed post_dev = todevice(post_cpu, layout)
     stamp("sharded posterior placed in $(fmt(tp))")
 
@@ -207,7 +239,7 @@ if "shard" in MODES && NDEV > 1
     println("device arrays in the posterior: $(length(arrs)), all with a sharding: $(nsh == length(arrs))")
     println("data on the devices: size $(size(obs)) (host $(length(measurement(dvis))) visibilities, padded per device)")
     for (i, s) in enumerate(slices)
-        println("  device $i holds rows $(s[1]) of the data")
+        println("  device $i holds rows $(s[1])", size(obs, 2) > 1 ? " and channels $(s[2])" : "", " of the data")
     end
 
     tdev = asflat(post_dev)
@@ -219,8 +251,8 @@ if "shard" in MODES && NDEV > 1
         hg = string(Reactant.@code_xla fgrad(xr, tdev))
         println("partitioned HLO collectives, logdensity: ", collectives(hl))
         println("partitioned HLO collectives, gradient:   ", collectives(hg))
-        nv = size(obs, 1)
-        println("arrays of the per-device data length [$(nv ÷ NDEV), ...] in the partitioned gradient HLO: $(count("[$(nv ÷ NDEV),", hg) + count("[$(nv ÷ NDEV)]", hg)); of the full length [$nv, ...]: $(count("[$nv,", hg) + count("[$nv]", hg))")
+        nv, nvloc = size(obs, 1), length(first(slices)[1])
+        println("arrays of the per-device data length [$nvloc, ...] in the partitioned gradient HLO: $(count("[$nvloc,", hg) + count("[$nvloc]", hg)); of the full length [$nv, ...]: $(count("[$nv,", hg) + count("[$nv]", hg))")
         write(joinpath(@__DIR__, "out_logdensity.hlo"), hl)
         write(joinpath(@__DIR__, "out_gradient.hlo"), hg)
     end
