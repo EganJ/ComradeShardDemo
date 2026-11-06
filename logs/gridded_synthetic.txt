@@ -1,0 +1,28 @@
+backend = cpu, devices = 4 (Reactant.XLA.IFRT.Device), threads = 8
+DATA = synthetic (ARRAY = eht2017, NDAYS = 3, TINT = 10.0 s, NIF = 4, NCHAN = 10), mesh = 2 (Ti) × 2 (Fr)
+NPIX = 32, PADFAC = 2, NT = 8, AVG = none, FRAMES = count, NEVAL = 20, MODES = cpu,single,shard
+[13.3 s | RSS 2.01 GiB, peak 2.04 GiB] loaded 4971920 visibilities (124298 records × 40 channels)
+[21.7 s | RSS 1.94 GiB, peak 2.04 GiB] posterior: 4971920 visibilities in 930 of 67584 cells (33×64 × 8 frames × 4 IFs), 32×32 pixels padded to 64, 8202 parameters
+[70.5 s | RSS 2.01 GiB, peak 2.08 GiB] CPU first calls: logdensity 592.43 ms, gradient 48.15 s (includes Julia/Enzyme compilation); logdensity = -7.643681597784607e6
+[70.6 s | RSS 2.01 GiB, peak 2.08 GiB] CPU: logdensity 764.3 µs (min 735.8 µs), gradient 8.86 ms (min 7.33 ms)
+[100.9 s | RSS 2.38 GiB, peak 2.38 GiB] 1 device: compiled logdensity in 28.16 s
+[104.8 s | RSS 2.42 GiB, peak 2.42 GiB] 1 device: compiled gradient in 3.94 s
+[105.2 s | RSS 2.42 GiB, peak 2.42 GiB] 1 device: logdensity = -7.643681597784607e6, rel. error vs CPU = 0.0; gradient rel. error (2-norm) = 2.7516970591922473e-15, max abs = 3.166496753692627e-8
+[105.3 s | RSS 2.43 GiB, peak 2.43 GiB] 1 device: logdensity 437.7 µs (min 355.3 µs), gradient 661.7 µs (min 580.3 µs)
+[108.6 s | RSS 2.48 GiB, peak 2.5 GiB] sharded posterior placed in 2.92 s
+  device 1 holds frames 1:4 and IFs 1:2 of the gridded data
+  device 2 holds frames 1:4 and IFs 3:4 of the gridded data
+  device 3 holds frames 5:8 and IFs 1:2 of the gridded data
+  device 4 holds frames 5:8 and IFs 3:4 of the gridded data
+[112.0 s | RSS 2.49 GiB, peak 2.5 GiB] 4 devices: compiled logdensity in 2.78 s
+[114.0 s | RSS 2.5 GiB, peak 2.5 GiB] 4 devices: compiled gradient in 1.94 s
+[114.4 s | RSS 2.5 GiB, peak 2.5 GiB] 4 devices: logdensity = -7.643681597784607e6, rel. error vs CPU = 0.0; gradient rel. error (2-norm) = 2.7515321578438333e-15, max abs = 3.166496753692627e-8
+[114.9 s | RSS 2.5 GiB, peak 2.5 GiB] 4 devices: logdensity 9.74 ms (min 8.76 ms), gradient 10.21 ms (min 8.58 ms)
+partitioned HLO ops, logdensity: (all_reduce = 2, all_gather = 0, reduce_scatter = 0, all_to_all = 0, collective_permute = 1, var"while" = 0, gather = 0, scatter = 0, fft = 1)
+partitioned HLO ops, gradient:   (all_reduce = 3, all_gather = 0, reduce_scatter = 0, all_to_all = 0, collective_permute = 2, var"while" = 0, gather = 0, scatter = 0, fft = 2)
+
+SUMMARY (median of 20 calls; NPIX = 32, NT = 8, 930 gridded cells, 8202 parameters)
+CPU (no Reactant)      compile ld     NaN s, grad     NaN s | logdensity  764.3 µs | gradient   8.86 ms
+Reactant, 1 device     compile ld   28.16 s, grad    3.94 s | logdensity  437.7 µs | gradient  661.7 µs, rel. err ld 0.0, grad 2.8e-15
+Reactant, 4 devices    compile ld    2.78 s, grad    1.94 s | logdensity   9.74 ms | gradient  10.21 ms, rel. err ld 0.0, grad 2.8e-15
+[118.1 s | RSS 2.52 GiB, peak 2.52 GiB] done

@@ -1,7 +1,11 @@
-# Sharded Comrade movie posterior: log density and gradient on all Reactant devices.
+# Sharded gridded-visibility movie posterior: log density and gradient on all Reactant devices.
+#
+# The visibilities are gridded onto the cells of the half-plane real FFT of each zero-padded
+# frame and IF, so the forward model is an FFT and elementwise products, with no instrument.
 #
 # Problem size and stages are set by environment variables (see README.md):
 #   NPIX   pixels per side of each frame         (default 32)
+#   PADFAC zero-padding factor of the FFT        (default 2)
 #   NT     number of movie frames                (default 2 × number of devices)
 #   DATA   "eht2017" (the coverage in data/) or "synthetic" (see synthetic.jl)  (default "eht2017")
 #   ARRAY  stations of the synthetic coverage: "eht2017" or "eht2022" (data/array_eht2022.txt)
@@ -19,6 +23,7 @@
 
 const BACKEND = get(ENV, "DEMO_BACKEND", "cpu")
 const NPIX = parse(Int, get(ENV, "NPIX", "32"))
+const PADFAC = parse(Int, get(ENV, "PADFAC", "2"))
 const DATASET = get(ENV, "DATA", "eht2017")
 DATASET in ("eht2017", "synthetic") || error("DATA must be eht2017 or synthetic, not $DATASET")
 const SYNTH = DATASET == "synthetic"
@@ -46,6 +51,9 @@ const TSHARD = NDEV ÷ FSHARD
 
 using Comrade, VLBIFiles, VLBIImagePriors, Distributions, Enzyme
 using Random, Statistics, LinearAlgebra
+using AbstractFFTs: rfft
+using ProbabilityTransports: NamedDist, TVFlat, latent_pback, latent_pfwd_and_logdensity, transport_to
+import VLBISkyModels
 
 rss() = (s = read("/proc/self/status", String); m(k) = parse(Int, match(Regex("$k:\\s+(\\d+)"), s)[1]) / 2^20; (now = m("VmRSS"), peak = m("VmHWM")))
 fmt(t) = t < 1.0e-3 ? string(round(t * 1.0e6; digits = 1), " µs") : t < 1 ? string(round(t * 1.0e3; digits = 2), " ms") : string(round(t; digits = 2), " s")
@@ -58,7 +66,7 @@ const T0 = time()
 
 println("backend = $BACKEND, devices = $NDEV ($(join(unique(string.(typeof.(DEVS))), ", "))), threads = $(Threads.nthreads())")
 println("DATA = $DATASET", SYNTH ? " (ARRAY = $ARRAY, NDAYS = $NDAYS, TINT = $TINT s, NIF = $NIF, NCHAN = $NCHAN)" : "", ", mesh = $TSHARD (Ti) × $FSHARD (Fr)")
-println("NPIX = $NPIX, NT = $NT, AVG = $AVG, FRAMES = $FRAMES, NEVAL = $NEVAL, MODES = $(join(MODES, ","))")
+println("NPIX = $NPIX, PADFAC = $PADFAC, NT = $NT, AVG = $AVG, FRAMES = $FRAMES, NEVAL = $NEVAL, MODES = $(join(MODES, ","))")
 NDEV % FSHARD == 0 || error("FSHARD = $FSHARD does not divide the $NDEV devices")
 SYNTH || FSHARD == 1 || error("FSHARD = $FSHARD needs DATA=synthetic; the EHT 2017 data have one channel")
 NIF % FSHARD == 0 || error("NIF = $NIF IFs do not split evenly over FSHARD = $FSHARD devices")
@@ -93,21 +101,20 @@ else
 end
 fov = μas2rad(150.0)
 g2 = spatialgrid(fov, fov, NPIX, NPIX)
-gt = g2 ⊗ frames(Ti, collect(edges[1:(end - 1)]), collect(edges[2:end]))
-grid = SYNTH ? gt ⊗ frames(Fr, ifedges...) : gt
+const NPLANE = SYNTH ? NIF : 1
 
 crescent(ξ) = modify(RingTemplate(RadialGaussian(0.15), AzimuthalCosine(0.6, ξ)), Stretch(μas2rad(21.0)))
 pas = range(0.0, π / 2; length = NT)
 meanimg = stack(ξ -> baseimage(intensitymap(crescent(ξ), g2)), pas)
 logmean = log.(meanimg .+ 1.0e-3 * maximum(meanimg))
 
-function movie_sky(θ, grid, meta)
+# Flux per pixel, NPIX × NPIX × frames × IFs.
+function movie_image(θ, meta)
     (; c, σimg) = θ
     δ = cat(map(ck -> reshape(ck.params, size(ck.params)..., 1), c)...; dims = 3)
     e = exp.(meta.logmean .+ σimg .* δ)
     img = meta.ftot .* e ./ sum(e; dims = (1, 2))
-    hasproperty(θ, :α) && (img = img .* reshape(meta.νrel .^ θ.α, 1, 1, 1, :))
-    return ContinuousImage(IntensityMap(img, grid), BSplinePulse{3}())
+    return hasproperty(θ, :α) ? img .* reshape(meta.νrel .^ θ.α, 1, 1, 1, :) : reshape(img, size(img)..., 1)
 end
 
 cprior = corr_image_prior(g2, tab)
@@ -119,28 +126,109 @@ if SYNTH
     prior = merge(prior, (; α = VLBIGaussian(-0.5, 0.5)))
     metadata = merge(metadata, (; νrel = νif ./ mean(νif)))
 end
-skym = SkyModel(movie_sky, prior, grid; metadata)
+prior = NamedDist(prior)
 
-## Instrument: complex gain per station and scan
+## Fourier transform: the half-plane real FFT of each frame and IF, zero-padded to NPAD × NPAD
 
-lgp = IIDSitePrior(ScanSeg(), VLBIGaussian(0.0, 0.2))
-gpp = IIDSitePrior(ScanSeg(), VLBIGaussian(0.0, 1.0))
-G = Jones((x, c) -> exp(complex(x.lg, x.gp)); lg = ArrayPrior(lgp), gp = ArrayPrior(gpp; refant = SensitiveReference(0.0)))
-intm = InstrumentModel(G)
+const NPAD = nextprod((2, 3, 5, 7), PADFAC * NPIX)
+const dx, dy = step(g2.X), step(g2.Y)
+const Δu, Δv = 1 / (NPAD * dx), 1 / (NPAD * dy)
+# Signed frequency index of FFT bin `j` of `n`.
+freqindex(j, n) = mod(j - 1 + n ÷ 2, n) - n ÷ 2
+const ku = 0:(NPAD ÷ 2)
+const kv = freqindex.(1:NPAD, NPAD)
 
-## Simulated data on the real coverage
+# The Fourier sum Σ img[m, n] cispi(2 (k (m - 1) + l (n - 1)) / NPAD) of each image plane, for
+# `k in ku` and `l in kv`, by an FFT of the zero-padded planes.
+struct PaddedRFFT
+    n::Int
+end
+function (p::PaddedRFFT)(img)
+    pimg = similar(img, (p.n, p.n, size(img)[3:end]...))
+    fill!(pimg, 0)
+    pimg[axes(img, 1), axes(img, 2), :, :] .= img
+    return conj.(rfft(pimg, (1, 2)))
+end
+
+# The same sum by dense DFT matrices, `Fx = Cx + i Sx` and `Fy = Cy + i Sy`, kept real for Enzyme.
+struct DFTMatrices{M}
+    Cx::M
+    Sx::M
+    Cy::M
+    Sy::M
+end
+function DFTMatrices(n)
+    px, py = 2 .* ku .* (0:(n - 1))' ./ NPAD, 2 .* kv .* (0:(n - 1))' ./ NPAD
+    return DFTMatrices(cospi.(px), sinpi.(px), cospi.(py), sinpi.(py))
+end
+function (d::DFTMatrices)(img)
+    planes = map(CartesianIndices(axes(img)[3:end])) do I
+        A, B = d.Cx * img[:, :, I], d.Sx * img[:, :, I]
+        complex.(A * d.Cy' .- B * d.Sy', A * d.Sy' .+ B * d.Cy')
+    end
+    return stack(planes)
+end
+
+# Visibility of a unit-flux pixel at the grid origin in each cell: its pulse and phase.
+pulse = BSplinePulse{3}()
+response = [
+    VLBISkyModels.ω(pulse, k * Δu * dx) * VLBISkyModels.ω(pulse, l * Δv * dy) * cispi(2 * (k * Δu * first(g2.X) + l * Δv * first(g2.Y)))
+        for k in ku, l in kv
+]
+
+## Gridded data: the inverse-variance weights of the visibilities in each cell, frame and IF
+
+# Weights `Σ 1 / σ²` of the visibilities of `tab` in each half-plane FFT cell, frame and IF;
+# a visibility at `(u, v)` with `u < 0` counts at its conjugate `(-u, -v)`.
+function gridweights(tab, edges, nplane, ifedges)
+    d, σ = domain(tab), Comrade.noise(tab)
+    U, V, Ti, Fr = d.U, d.V, d.Ti, d.Fr
+    w = zeros(length(ku), length(kv), length(edges) - 1, nplane)
+    for I in CartesianIndices(σ)
+        i, j = round(Int, U[I] / Δu), round(Int, V[I] / Δv)
+        i < 0 && ((i, j) = (-i, -j))
+        i <= last(ku) && minimum(kv) <= j <= maximum(kv) ||
+            error("a visibility at (u, v) = ($(U[I]), $(V[I])) is outside the FFT grid; increase NPIX")
+        k = searchsortedlast(edges, Ti[I[1]])
+        f = isnothing(ifedges) ? 1 : searchsortedlast(ifedges[1], Fr[I[2]])
+        w[i + 1, mod(j, NPAD) + 1, k, f] += 1 / σ[I]^2
+    end
+    return w
+end
+weight = gridweights(tab, edges, NPLANE, SYNTH ? ifedges : nothing)
+
+## Posterior
+
+# Gaussian gridded visibilities `data` with weights `weight` for the model
+# `response .* ft(movie_image(θ, meta))`, with the prior of `transform` on flat parameters.
+struct GriddedPosterior{T, F, R, D, W, M}
+    transform::T
+    ft::F
+    response::R
+    data::D
+    weight::W
+    meta::M
+end
+
+visibilities(post, θ) = post.response .* post.ft(movie_image(θ, post.meta))
+
+function logdensity(post::GriddedPosterior, x)
+    θ, ℓ = latent_pfwd_and_logdensity(post.transform, x)
+    return ℓ - sum(post.weight .* abs2.(visibilities(post, θ) .- post.data)) / 2
+end
 
 rng = Xoshiro(17)
-post_sim = VLBIPosterior(tab; sky = skym, instrument = intm, admode = nothing)
-θ0 = prior_sample(rng, post_sim)
-θtrue = (sky = merge(θ0.sky, (σimg = 0.3,)), instrument = θ0.instrument)
-dvis = only(simulate_observation(rng, post_sim, θtrue))
-post_cpu = VLBIPosterior(dvis; sky = skym, instrument = intm, admode = nothing)
-tcpu = asflat(post_cpu)
-x0 = prior_sample(Xoshiro(41), tcpu)
-stamp("posterior: $(length(measurement(dvis))) visibilities, $NT frames of $(NPIX)×$NPIX, $(dimension(tcpu)) parameters")
+θtrue = merge(rand(rng, prior), (σimg = 0.3,))
+ptrans = transport_to(prior, TVFlat())
+post_sim = GriddedPosterior(ptrans, DFTMatrices(NPIX), response, nothing, weight, metadata)
+noise = (randn(rng, size(weight)) .+ im .* randn(rng, size(weight))) ./ sqrt.(max.(weight, eps()))
+data = ifelse.(weight .> 0, visibilities(post_sim, θtrue) .+ noise, zero(ComplexF64))
+post_cpu = GriddedPosterior(ptrans, DFTMatrices(NPIX), response, data, weight, metadata)
+x0 = latent_pback(ptrans, rand(Xoshiro(41), prior))
+const NCELL = count(>(0), weight)
+stamp("posterior: $(length(measurement(tab))) visibilities in $NCELL of $(length(weight)) cells ($(size(weight, 1))×$(size(weight, 2)) × $NT frames × $NPLANE IFs), $(NPIX)×$NPIX pixels padded to $NPAD, $(length(x0)) parameters")
 
-fgrad(x, tp) = Enzyme.gradient(Enzyme.set_runtime_activity(Enzyme.Reverse), Const(Base.Fix1(logdensityof, tp)), x)[1]
+fgrad(x, tp) = Enzyme.gradient(Enzyme.set_runtime_activity(Enzyme.Reverse), Const(Base.Fix1(logdensity, tp)), x)[1]
 
 function bench(f, n)
     f()
@@ -150,24 +238,24 @@ end
 
 results = Dict{String, Any}()
 
-## CPU reference (plain Julia, NFFT on the host, Enzyme on the CPU)
+## CPU reference (plain Julia, DFT matrices on the host, Enzyme on the CPU)
 
 ld_cpu = gr_cpu = nothing
 if "cpu" in MODES || "single" in MODES || "shard" in MODES
-    tc = @elapsed ld_cpu = logdensityof(tcpu, x0)
-    tg = @elapsed gr_cpu = fgrad(x0, tcpu)
+    tc = @elapsed ld_cpu = logdensity(post_cpu, x0)
+    tg = @elapsed gr_cpu = fgrad(x0, post_cpu)
     stamp("CPU first calls: logdensity $(fmt(tc)), gradient $(fmt(tg)) (includes Julia/Enzyme compilation); logdensity = $ld_cpu")
 end
 if "cpu" in MODES
-    bl = bench(() -> logdensityof(tcpu, x0), NEVAL)
-    bg = bench(() -> fgrad(x0, tcpu), max(3, NEVAL ÷ 4))
+    bl = bench(() -> logdensity(post_cpu, x0), NEVAL)
+    bg = bench(() -> fgrad(x0, post_cpu), max(3, NEVAL ÷ 4))
     results["cpu"] = (; compile_ld = NaN, compile_grad = NaN, ld = bl, grad = bg)
     stamp("CPU: logdensity $(fmt(bl.median)) (min $(fmt(bl.min))), gradient $(fmt(bg.median)) (min $(fmt(bg.min)))")
 end
 
 # Compile, check against the CPU, and time the log density and gradient of `tdev` at `xr`.
 function run_reactant(label, tdev, xr)
-    tcl = @elapsed ldc = @compile sync = true logdensityof(tdev, xr)
+    tcl = @elapsed ldc = @compile sync = true logdensity(tdev, xr)
     stamp("$label: compiled logdensity in $(fmt(tcl))")
     tcg = @elapsed gc = @compile sync = true fgrad(xr, tdev)
     stamp("$label: compiled gradient in $(fmt(tcg))")
@@ -182,10 +270,17 @@ function run_reactant(label, tdev, xr)
     return (; compile_ld = tcl, compile_grad = tcg, ld = bl, grad = bg, rld, rgr), ldc, gc
 end
 
+# `post` on the devices with the FFT: data and weights placed by `sharding`, the response by
+# `replicated`; the prior and metadata stay on the host, as constants of the compiled program.
+place(post::GriddedPosterior, sharding, replicated) = GriddedPosterior(
+    post.transform, PaddedRFFT(NPAD), Reactant.to_rarray(post.response; sharding = replicated),
+    Reactant.to_rarray(post.data; sharding), Reactant.to_rarray(post.weight; sharding), post.meta,
+)
+
 ## One device
 
 if "single" in MODES
-    tsingle = asflat(todevice(post_cpu, Reactant.Sharding.NoSharding()))
+    tsingle = place(post_cpu, Reactant.Sharding.NoSharding(), Reactant.Sharding.NoSharding())
     results["single"], _, _ = run_reactant("1 device", tsingle, Reactant.to_rarray(x0))
     tsingle = nothing
     GC.gc()
@@ -193,22 +288,10 @@ end
 
 ## All devices, sharded over the movie frames
 
-# The device arrays that `x` holds.
-function devicearrays(x, found = Any[], seen = IdDict{Any, Nothing}())
-    if x isa Reactant.AbstractConcreteArray
-        push!(found, x)
-    elseif x isa Array
-        isbitstype(eltype(x)) || foreach(y -> devicearrays(y, found, seen), x)
-    elseif !(isbits(x) || x isa Union{Module, Type, Symbol, AbstractString} || haskey(seen, x))
-        seen[x] = nothing
-        foreach(i -> isdefined(x, i) && devicearrays(getfield(x, i), found, seen), 1:fieldcount(typeof(x)))
-    end
-    return found
-end
-
-function collectives(hlo)
-    ops = ("all-reduce", "all-gather", "reduce-scatter", "all-to-all", "collective-permute", "while")
-    return NamedTuple{Symbol.(replace.(ops, "-" => "_"))}(map(op -> count(op * "(", hlo) + count(op * "-start(", hlo), ops))
+# The ops of the HLO text `hlo` that move or index data.
+function opcounts(hlo)
+    ops = ("all-reduce", "all-gather", "reduce-scatter", "all-to-all", "collective-permute", "while", "gather", "scatter", "fft")
+    return NamedTuple{Symbol.(replace.(ops, "-" => "_"))}(map(op -> count(Regex("(?<![\\w-])" * op * "(-start)?\\("), hlo), ops))
 end
 
 # `n` Adam steps of gradient ascent on `tdev`, compiled as one step function.
@@ -237,38 +320,28 @@ end
 if "shard" in MODES && NDEV > 1
     mesh = FSHARD == 1 ? Reactant.Sharding.Mesh(reshape(DEVS, NDEV), (:t,)) :
         Reactant.Sharding.Mesh(reshape(DEVS, TSHARD, FSHARD), (:t, :f))
-    layout = FSHARD == 1 ? ShardLayout(mesh; Ti = :t) : ShardLayout(mesh; Ti = :t, Fr = :f)
-    tp = @elapsed post_dev = todevice(post_cpu, layout)
+    datasharding = Reactant.Sharding.NamedSharding(mesh, (nothing, nothing, :t, FSHARD == 1 ? nothing : :f))
+    tp = @elapsed tdev = place(post_cpu, datasharding, Reactant.Sharding.Replicated(mesh))
     stamp("sharded posterior placed in $(fmt(tp))")
-
-    arrs = devicearrays(post_dev)
-    nsh = count(Reactant.Sharding.is_sharded, arrs)
-    obs = only(post_dev.lklhds).obs
-    slices = obs.sharding.device_to_array_slices
-    println("device arrays in the posterior: $(length(arrs)), all with a sharding: $(nsh == length(arrs))")
-    println("data on the devices: size $(size(obs)) (host $(length(measurement(dvis))) visibilities, padded per device)")
-    for (i, s) in enumerate(slices)
-        println("  device $i holds rows $(s[1])", size(obs, 2) > 1 ? " and channels $(s[2])" : "", " of the data")
+    for (i, s) in enumerate(tdev.data.sharding.device_to_array_slices)
+        println("  device $i holds frames $(s[3]) and IFs $(s[4]) of the gridded data")
     end
 
-    tdev = asflat(post_dev)
     xr = Reactant.to_rarray(x0; sharding = Reactant.Sharding.Replicated(mesh))
     results["shard"], ldc, gc = run_reactant("$NDEV devices", tdev, xr)
 
     if HLO
-        hl = string(Reactant.@code_xla logdensityof(tdev, xr))
+        hl = string(Reactant.@code_xla logdensity(tdev, xr))
         hg = string(Reactant.@code_xla fgrad(xr, tdev))
-        println("partitioned HLO collectives, logdensity: ", collectives(hl))
-        println("partitioned HLO collectives, gradient:   ", collectives(hg))
-        nv, nvloc = size(obs, 1), length(first(slices)[1])
-        println("arrays of the per-device data length [$nvloc, ...] in the partitioned gradient HLO: $(count("[$nvloc,", hg) + count("[$nvloc]", hg)); of the full length [$nv, ...]: $(count("[$nv,", hg) + count("[$nv]", hg))")
+        println("partitioned HLO ops, logdensity: ", opcounts(hl))
+        println("partitioned HLO ops, gradient:   ", opcounts(hg))
         write(joinpath(@__DIR__, "out_logdensity.hlo"), hl)
         write(joinpath(@__DIR__, "out_gradient.hlo"), hg)
     end
 
     NOPT > 0 && run_adam(tdev, ldc, x0, mesh, NOPT)
 end
-println("\nSUMMARY (median of $NEVAL calls; NPIX = $NPIX, NT = $NT, $(length(measurement(dvis))) visibilities, $(dimension(tcpu)) parameters)")
+println("\nSUMMARY (median of $NEVAL calls; NPIX = $NPIX, NT = $NT, $NCELL gridded cells, $(length(x0)) parameters)")
 for k in ("cpu", "single", "shard")
     haskey(results, k) || continue
     r = results[k]

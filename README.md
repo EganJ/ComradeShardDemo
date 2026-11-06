@@ -1,42 +1,56 @@
-# Sharded Comrade posterior with Reactant
+# Sharded gridded-visibility posterior with Reactant
 
-`main.jl` builds a VLBI movie posterior, places it on every Reactant device with Comrade's
-`todevice(post, ShardLayout(mesh; Ti = :t))` (or `Ti = :t, Fr = :f` on a 2-D mesh), compiles the log density and its Enzyme
-reverse-mode gradient, checks both against the plain CPU path, and times them against one
-device and the CPU.
+This branch is a simplified version of the demo on `main`. Its program contains only FFTs,
+elementwise operations and reductions, with no gathers or scatters:
+
+- the visibilities are gridded onto the cells of a real FFT, so the forward model is an FFT
+  of each frame and IF instead of a non-uniform FFT;
+- there is no instrument model.
+
+`main.jl` builds the posterior, places it on every Reactant device with its gridded data
+split over the frames (`Ti`) and, with `FSHARD > 1`, the IFs (`Fr`), compiles the log density
+and its Enzyme reverse-mode gradient, checks both against a plain CPU path, and times them
+against one device and the CPU.
 
 The model:
 
-- The coverage is one of:
+- The coverage is one of (as on `main`):
   - `DATA=eht2017` (default): EHT 2017 M87 coverage
     (`data/SR1_M87_2017_096_lo_hops_netcal_StokesI.uvfits`), either scan-averaged (274
     visibilities) or unaveraged (8645), one channel.
   - `DATA=synthetic` (`synthetic.jl`): the same stations, source and epoch over `NDAYS` days,
     every baseline of the 2017 data at `TINT`-second integrations in 10-minute scans (2-minute
     gaps) while M87 is at least 10° up at both stations, and `NIF` contiguous 2 GHz IFs of
-    `NCHAN` channels each. The noise is each baseline's median 2017 noise scaled to the
-    channel width and integration time. The defaults (3 days, 10 s, 4 × 10 channels) give
-    124298 records × 40 channels = 4.97M visibilities; `NCHAN=32` gives 15.9M.
-  - `DATA=synthetic ARRAY=eht2022`: the same, with the 11 EHT 2022 sites in
-    `data/array_eht2022.txt` (adding GL, KT and NN; SP never sees M87) and every pair of them,
-    45 baselines with data: about 92.9k records per day, 11.1M visibilities at the defaults.
-    The noise of a baseline is the product of two station factors fitted to the 2017 baseline
-    noise (about 11% rms in log σ); GL, KT and NN get the median factor. The source, epoch
-    and noise level still come from the 2017 file.
+    `NCHAN` channels each. The defaults give 4.97M visibilities.
+  - `DATA=synthetic ARRAY=eht2022`: the same with the 11 EHT 2022 sites in
+    `data/array_eht2022.txt`.
 - The sky is a movie of `NT` frames of `NPIX × NPIX` pixels on a 150 μas field. Each frame
-  has its own GMRF log-image (`corr_image_prior`, with its own correlation length) around a
-  crescent whose position angle rotates over the observation. The frames are normalized to
-  0.6 Jy and drawn with a 3rd-order B-spline pulse.
-- The instrument is a complex gain per station and scan (`IIDSitePrior(ScanSeg(), …)`), with
-  the phase referenced by `SensitiveReference`.
-- With `DATA=synthetic`, the image has one plane per IF, the movie scaled by `(ν/ν̄)^α` with a
-  spectral-index parameter `α`.
-- The data are simulated from a prior draw with thermal noise.
+  has its own GMRF log-image (`corr_image_prior`) around a crescent whose position angle
+  rotates over the observation. The frames are normalized to 0.6 Jy. With `DATA=synthetic`
+  the image has one plane per IF, scaled by `(ν/ν̄)^α` with a spectral-index parameter `α`.
+- Each image plane is zero-padded to `NPAD × NPAD`, `NPAD` the smallest 7-smooth number of
+  at least `PADFAC × NPIX`. Its visibilities on the `(NPAD/2 + 1) × NPAD` cells of the
+  half-plane real FFT are `response .* conj.(rfft(plane))`, where `response` is the
+  visibility of a unit pixel at the grid origin (3rd-order B-spline pulse and phase).
+- Each visibility goes to the nearest cell of its frame and IF; one at `u < 0` goes to the
+  cell of its conjugate `(-u, -v)`. A cell's weight is the sum of `1/σ²` of its visibilities.
+  A visibility outside the grid stops the run.
+- The gridded data are simulated from a prior draw with Gaussian noise of variance
+  `1/weight` on the cells that hold visibilities. The likelihood is
+  `-Σ weight |V - data|² / 2` over all cells.
 - The log density and gradient are evaluated at a different prior draw.
 
-Sharding is over the movie frames (`Ti`) and, with `FSHARD > 1`, the IFs (`Fr`) on a
-`(NDEV / FSHARD) × FSHARD` mesh. Each device holds its frames and IFs and the visibilities
-that fall in them, padded to a common length. The parameter vector is replicated.
+The work is set by the grid, `(NPAD/2 + 1) × NPAD × NT × NIF` cells, not by the number of
+visibilities: the 4.97M synthetic visibilities fall in 930 of the 67584 cells at the
+defaults. Scale the work with `NPIX`, `NT` and `NIF`.
+
+The CPU reference computes the same Fourier sums with dense DFT matrices, split into real
+cosine and sine parts, which Enzyme differentiates; it is a separate implementation of the
+FFT path. Its cost grows as `NPIX³` per plane.
+
+The data and weights are split along their frame and IF dims on a
+`(NDEV / FSHARD) × FSHARD` mesh. The response and the parameter vector are replicated; the
+prior and the mean image are constants of the compiled program.
 
 ## Setup
 
@@ -65,22 +79,16 @@ and prints where each copy comes from. The copies are of the working trees:
 | FieldDimArrays | `reactant-hoist` | `398d08d` | |
 | ReactantCore | | | `lib/ReactantCore` of the Reactant commit in `Manifest.toml` |
 
-The timings under "Measured here" were taken with the snapshot of 2026-11-02. With the
-snapshot above, the default case gives the same log density, gradient errors and collectives
-(`logs/refreshed_default.txt`).
+The timings under "Measured here" were taken with the snapshot above.
 
 ## Running
 
 ```sh
 ./run.sh                                   # 4 forced host CPU devices, NPIX=32, NT=8, scan-averaged
-NDEV=8 NT=16 ./run.sh                      # 8 forced host CPU devices
-AVG=none NPIX=128 NT=16 FRAMES=count NOPT=20 ./run.sh
+DATA=synthetic ./run.sh                    # 4.97M visibilities over 3 days, 4 IFs, 2 × 2 Ti × Fr mesh
+DATA=synthetic NPIX=128 NT=32 ./run.sh    # larger grid
 GPU=1 NT=16 ./run.sh                       # every visible GPU (multi-GPU node)
-DATA=synthetic GPU=1 NT=16 ./run.sh        # 4.97M visibilities over 3 days, 4 IFs, Ti × Fr mesh
-DATA=synthetic NDAYS=1 TINT=60 NIF=2 NCHAN=4 NT=4 ./run.sh   # 55k visibilities, quick CPU check
-DATA=synthetic ARRAY=eht2022 GPU=1 NT=16 ./run.sh             # EHT 2022 sites, 11.1M visibilities
 BACKEND=tpu NT=16 ./run.sh                 # every TPU core
-BACKEND=trainium NT=16 ./run.sh            # every Neuron core
 ```
 
 `run.sh` sets the following, then runs `julia -t $JT --project=. main.jl` under a timeout:
@@ -106,129 +114,58 @@ device count.
 | `NDAYS`, `TINT`, `NIF`, `NCHAN` | synthetic coverage: days, integration (s), IFs, channels per IF | 3, 10, 4, 10 |
 | `FSHARD` | devices along `Fr`; `NDEV / FSHARD` split `Ti` | 2 for synthetic data when `NIF` and the device count are even, else 1 |
 | `NPIX` | pixels per side of each frame | 32 |
+| `PADFAC` | zero-padding factor of the FFT | 2 |
 | `NT` | number of frames | 2 × devices |
 | `AVG` | `scan` (scan-averaged) or `none` | `scan`; `none` for synthetic data |
 | `FRAMES` | `time`: frames of equal duration; `count`: equal numbers of visibilities | `time`; `count` for synthetic data |
 | `MODES` | which of `cpu,single,shard` to run | all |
 | `NEVAL` | timed calls per measurement | 20 |
-| `HLO` | `1`: print the collectives of the partitioned XLA HLO, write `out_*.hlo` | 1 |
+| `HLO` | `1`: print the collectives, gathers, scatters and FFTs of the partitioned XLA HLO, write `out_*.hlo` | 1 |
 | `NOPT` | Adam steps on the sharded posterior | 0 |
 | `JT`, `TMO` | Julia threads, timeout in seconds | 8, 3600 |
 
-The script always computes the CPU log density and gradient at the same point as the
-reference for the correctness check.
+The script computes the CPU log density and gradient as the reference for the correctness
+check whenever `MODES` includes `cpu`, `single` or `shard`.
 
 ## Measured here
 
 Machine: 20-core laptop, Julia 1.13.3, `-t 8`, 4 devices forced on the host CPU, Reactant
-0.2.304 (main). Times are medians of 10 calls (3 for the smallest case). Each call includes
-copying the scalar or gradient back to the host. "Compile" is the time for
-`@compile sync=true`, which includes tracing. The CPU column is plain Julia: NFFT on the
-host, Enzyme on the CPU. Its first gradient call, which includes Enzyme compilation, takes
-57–83 s.
+0.2.304 (main). Times are medians of 20 calls, each including the copy of the scalar or
+gradient back to the host. "Compile" is `@compile sync=true`, including tracing.
 
 | case | path | compile ld / grad | log density | gradient |
 |---|---|---|---|---|
-| NPIX 16, NT 4, scan avg (274 vis, 1256 params) | CPU | – | 0.18 ms | 0.46 ms |
-| | Reactant, 1 device | 45 s / 11 s | 0.18 ms | 0.67 ms |
-| | Reactant, 4 devices | 13 s / 7.5 s | 10.0 ms | 8.7 ms |
-| NPIX 32, NT 8, scan avg (defaults, 274 vis, 8428 params) | CPU | – | 0.44 ms | 1.46 ms |
-| | Reactant, 1 device | 50 s / 15 s | 0.54 ms | 1.21 ms |
-| | Reactant, 4 devices | 14 s / 11 s | 13.6 ms | 13.5 ms |
-| NPIX 32, NT 8, unaveraged (8645 vis, 8428 params) | CPU | – | 0.94 ms | 3.0 ms |
-| | Reactant, 1 device | 47 s / 13 s | 2.2 ms | 9.4 ms |
-| | Reactant, 4 devices | 15 s / 11 s | 14.4 ms | 18.1 ms |
-| NPIX 64, NT 16, unaveraged (65780 params) | CPU | – | 3.8 ms | 11.1 ms |
-| | Reactant, 1 device | 54 s / 19 s | 3.3 ms | 11.5 ms |
-| | Reactant, 4 devices | 15 s / 16 s | 14.4 ms | 22.3 ms |
-| NPIX 128, NT 16, unaveraged, `FRAMES=count` (262388 params) | CPU | – | 7.7 ms | 33.9 ms |
-| | Reactant, 1 device | 56 s / 27 s | 11.2 ms | 27.2 ms |
-| | Reactant, 4 devices | 19 s / 24 s | 19.3 ms | 35.7 ms |
+| defaults: 274 vis in 73 of 16896 cells, 8201 params | CPU (DFT matrices) | – | 0.32 ms | 2.9 ms |
+| | Reactant, 1 device | 28 s / 3.7 s | 0.84 ms | 0.44 ms |
+| | Reactant, 4 devices | 2.9 s / 2.2 s | 11.9 ms | 11.6 ms |
+| `DATA=synthetic`: 4.97M vis in 930 of 67584 cells, 8202 params, 2 × 2 mesh | CPU (DFT matrices) | – | 0.76 ms | 8.9 ms |
+| | Reactant, 1 device | 28 s / 3.9 s | 0.44 ms | 0.66 ms |
+| | Reactant, 4 devices | 2.8 s / 1.9 s | 9.7 ms | 10.2 ms |
 
-The first `@compile` in a process also pays for compiling Reactant's tracing code, so the
-first Reactant row of each run has the larger log-density compile time.
+The runs are in `logs/gridded_default.txt` and `logs/gridded_synthetic.txt`.
 
-**Correctness.** In every case the sharded and single-device values agree with the CPU path:
+**Correctness.** The model visibilities agree with VLBISkyModels' `DFTAlg` on the same cells
+to 1e-15, and the FFT path with the DFT matrices to 4e-16. The single-device and sharded log
+densities agree with the CPU to 4e-16 or better, the gradients to 7e-15.
 
-- log density: relative error 1e-11 to 8e-11;
-- gradient: relative 2-norm error 2e-10 to 5e-10.
+**Partitioned HLO** (`@code_xla`, written to `out_logdensity.hlo` and `out_gradient.hlo`):
 
-The sharded and single-device results agree with each other to the last few digits.
+| case | program | FFT | all-reduce | collective-permute | gather / scatter / all-gather / `while` |
+|---|---|---|---|---|---|
+| defaults, 4 × 1 mesh | log density | 1 | 1 | 3 | 0 |
+| | gradient | 2 | 1 | 6 | 0 |
+| synthetic, 2 × 2 mesh | log density | 1 | 2 | 1 | 0 |
+| | gradient | 2 | 3 | 2 | 0 |
 
-**Optimization.** 20 Adam steps compiled as one sharded step function take:
+The all-reduces are the sums of the log likelihood and the gradient with respect to the
+replicated parameters. The collective-permutes move single `NPIX × NPIX` frames between
+devices; they come from the `cat` of the per-frame GMRF fluctuations in `movie_image`, whose
+parameters are replicated.
 
-- 10.9 ms per step at NPIX 16 / NT 4;
-- 15.6–17.0 ms per step at NPIX 32 / NT 8;
-- 35 ms per step at NPIX 128 / NT 16.
-
-The log density increases over those steps, for example from −1.6e7 to −7.5e6 at NPIX 128.
-
-**Memory.** The peak RSS of the whole process is 2.2 GiB at NPIX 16 and 3.1 GiB at NPIX 128.
-That covers the CPU, single-device and sharded posteriors, and their compiled programs. The
-devices are host memory, so device buffers are included in the RSS.
-
-## Is the sharding real?
-
-Yes, by three checks:
-
-- **Device arrays.** Every device array in the placed posterior has a sharding. The data,
-  weights and per-visibility gain indices are split by rows, for example rows 1:100, 101:200,
-  … of 400 slots at NPIX 16.
-- **Partitioned XLA HLO** (`@code_xla`, written to `out_logdensity.hlo` and
-  `out_gradient.hlo`):
-  - Each device's FFT covers only its own frames: `c128[1,32,32]` for 4 frames,
-    `c128[2,64,64]` for 8 frames on 4 devices.
-  - All per-visibility arrays have the per-device length, for example `[2172, …]` of 8688
-    slots. None has the full length.
-- **Collectives in the partitioned program.**
-  - The log density has 1–2 all-reduces, the sums of the log likelihood and the prior. At
-    NPIX 32 / NT 8 it also has 3 small collective-permutes of single frames.
-  - The gradient has 1–2 all-reduces, including one fused all-reduce of the gradient with
-    respect to the replicated parameters, plus 3–6 small collective-permutes of single frames.
-  - There are no all-gathers and no `while` loops.
-
-## Why there is no speedup here
-
-The 4 sharded devices are slower than 1 device at every size tried. Their extra time is
-roughly constant, about 8–12 ms per call, while the single-device time grows with the
-problem. The causes:
-
-1. **Collective latency on simulated CPU devices.** A micro-benchmark in the same
-   environment, the sum of a 400-element array split over 4 forced host devices, takes
-   7–8 ms per call against 19 µs on one device. Elementwise work on the same split array
-   costs 29 µs. The cost is the same with 1 or 8 Julia threads and with 2 or 4 devices, so it
-   is the latency of XLA's CPU collectives, not data volume. Each all-reduce or
-   collective-permute in the posterior pays it. On GPUs with NCCL the same collectives
-   typically take tens of microseconds; this was not measured here.
-2. **The devices share the same cores.** One XLA CPU device already runs its FFTs and fusions
-   on several cores. Four simulated devices split the same 20 cores, so the compute that
-   sharding removes from each device is not freed hardware.
-3. **The problems that fit in memory here are small.** One device needs only 3–27 ms per
-   gradient, which is comparable to the collective latency alone.
-
-So these numbers show that the sharded program is correct and genuinely partitioned. They do
-not show a speedup, and none should be inferred from them. A speedup needs real devices
-(multi-GPU) and enough per-device work. Scale up with `NPIX`, `NT` and `AVG=none`, or use
-more data.
-
-## Observations for scaling up
-
-- **Frame edges set the padding.** With `FRAMES=time` (equal durations) the 8645 unaveraged
-  visibilities fill 12920 slots, because the device with the most points sets the per-device
-  length: 49% padding. `FRAMES=count` picks frame edges with equal numbers of visibilities
-  and gets 8688 slots (0.5% padding).
-- **The prior and the frame construction are not split.** The parameters are replicated, so
-  every device evaluates the GMRF prior and the transform of all frames. The partitioner then
-  moves some single frames between devices with collective-permutes. Their source is the
-  `cat` of per-frame fluctuations in `movie_sky`. This replicated work does not shrink with
-  more devices.
-- **Single GPU.** With `GPU=1` on the local RTX 5060 Laptop GPU (compute capability 12.0),
-  compilation fails in XLA autotuning with `hipGetFuncBySymbol: hipError_t(98)`. Error 98
-  appears to be "invalid device function". With `GPU_XLA_FLAGS=--xla_gpu_autotune_level=0`
-  both programs compile, but the first call fails with
-  `INTERNAL: Unable to launch fft with type IFFT`. The likely cause is that the CUDA/XLA
-  build bundled with this Reactant has no kernels for this GPU's architecture. This was not
-  investigated further, and a multi-GPU run was not possible here.
+**No speedup here.** As on `main`, 4 simulated CPU devices are slower than 1: each collective
+costs a few milliseconds on forced host devices, the devices share the same cores, and the
+single-device time at these sizes is under a millisecond. These runs show that the program is
+partitioned without gathers or scatters; a speedup needs real devices and a larger grid.
 
 ## Files
 
@@ -244,6 +181,6 @@ more data.
   VLBILikelihoods, VLBIData, InterferometricModels, FieldDimArrays and ReactantCore; their
   sources are listed under Setup.
 - `LocalPreferences.toml`: the IFRT runtime preference.
-- `logs/`: the runs the table comes from (`final_default.txt` is the default configuration;
-  `refreshed_default.txt` is the same case with the current `pkgs/`).
+- `logs/`: `gridded_*.txt` are the runs of this branch's table; the other logs are runs of
+  the model on `main`.
 - `out_*.hlo`: the partitioned HLO written by a run with `HLO=1` (not tracked).

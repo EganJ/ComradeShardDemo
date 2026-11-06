@@ -1,4 +1,5 @@
 [deps]
+AbstractFFTs = "621f4979-c628-5d54-868e-fcf4e3e8185c"
 Comrade = "99d987ce-9a1e-4df8-bc0b-1ea019aa547b"
 ComradeBase = "6d8c423b-a35f-4ef1-850c-862fe21f82c4"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -8,6 +9,7 @@ FieldDimArrays = "8162b97e-af21-446d-9d6e-57a067fd3c83"
 InterferometricModels = "b395d269-c2ec-4df6-b679-36919ad600ca"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LogDensityProblems = "6fdf6af0-433a-55f7-b3ed-c6c6e0b8df7c"
+ProbabilityTransports = "6cb8f75d-6579-4ae3-8431-bc9b57364f63"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Reactant = "3c362404-f566-11ee-1572-e11a4b42c853"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
@@ -30,3 +32,7 @@ VLBIImagePriors = {path = "pkgs/VLBIImagePriors"}
 VLBIInstrumentModels = {path = "pkgs/VLBIInstrumentModels"}
 VLBILikelihoods = {path = "pkgs/VLBILikelihoods"}
 VLBISkyModels = {path = "pkgs/VLBISkyModels"}
+
+[compat]
+AbstractFFTs = "1.5"
+ProbabilityTransports = "0.1.5"
