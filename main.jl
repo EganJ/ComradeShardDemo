@@ -52,7 +52,9 @@ const TSHARD = NDEV ÷ FSHARD
 using Comrade, VLBIFiles, VLBIImagePriors, Distributions, Enzyme
 using Random, Statistics, LinearAlgebra
 using AbstractFFTs: rfft
-using ProbabilityTransports: NamedDist, TVFlat, latent_pback, latent_pfwd_and_logdensity, transport_to
+using LogExpFunctions: log1pexp, logistic, logit
+import ProbabilityTransports
+using ProbabilityTransports: NamedDist, StdNormal, TVFlat, latent_pback, latent_pfwd_and_logdensity, transport_to
 import VLBISkyModels
 
 rss() = (s = read("/proc/self/status", String); m(k) = parse(Int, match(Regex("$k:\\s+(\\d+)"), s)[1]) / 2^20; (now = m("VmRSS"), peak = m("VmHWM")))
@@ -111,14 +113,50 @@ logmean = log.(meanimg .+ 1.0e-3 * maximum(meanimg))
 # Flux per pixel, NPIX × NPIX × frames × IFs.
 function movie_image(θ, meta)
     (; c, σimg) = θ
-    δ = cat(map(ck -> reshape(ck.params, size(ck.params)..., 1), c)...; dims = 3)
-    e = exp.(meta.logmean .+ σimg .* δ)
+    e = exp.(meta.logmean .+ σimg .* c.params)
     img = meta.ftot .* e ./ sum(e; dims = (1, 2))
     return hasproperty(θ, :α) ? img .* reshape(meta.νrel .^ θ.α, 1, 1, 1, :) : reshape(img, size(img)..., 1)
 end
 
+# `nt` independent first-order GMRF images with correlation lengths ρ ~ `hyper`, as one
+# distribution over (params = image stack, hyperparams = z) with ρ = lo + (hi - lo) logistic(z),
+# so both flatten to one contiguous block each.
+struct FrameGMRFs{G <: MarkovRandomFieldGraph{1}, H} <: Distributions.ContinuousMultivariateDistribution
+    graph::G
+    hyper::H
+    nt::Int
+end
+movie_prior(cprior, nt) = FrameGMRFs(cprior.priormap.cache, cprior.hyperprior, nt)
+
+ProbabilityTransports.transport_node(d::FrameGMRFs, space::TVFlat) = ProbabilityTransports.transport_node(
+    (params = StdNormal{eltype(d.graph.λQ)}((size(d.graph)..., d.nt)), hyperparams = StdNormal{eltype(d.graph.λQ)}((d.nt,))), space,
+)
+
+function Distributions.logpdf(d::FrameGMRFs, x::NamedTuple)
+    δ, z = x.params, x.hyperparams
+    T = eltype(d.graph.λQ)
+    lo, hi = minimum(d.hyper), maximum(d.hyper)
+    ρ = lo .+ (hi - lo) .* logistic.(z)
+    κ² = reshape(VLBIImagePriors.κ.(ρ, Val(1)) .^ 2, 1, 1, :)
+    mrfnorm = VLBIImagePriors.mrfnorm.(Ref(d.graph), κ²)
+    n = length(d.graph.λQ)
+    quad = sum(VLBIImagePriors.gmrf_qv(δ, κ²) .* δ; dims = (1, 2)) ./ mrfnorm
+    logdet = sum(log.(κ² .+ d.graph.λQ); dims = (1, 2)) .- n .* log.(mrfnorm)
+    gmrf = sum(logdet .- quad) / 2 - d.nt * n * T(Distributions.log2π) / 2
+    # log dρ/dz
+    jac = log(hi - lo) .- log1pexp.(z) .- log1pexp.(.-z)
+    return gmrf + sum(logpdf.(Ref(d.hyper), ρ) .+ jac)
+end
+
+function Distributions.rand(rng::AbstractRNG, d::FrameGMRFs)
+    lo, hi = minimum(d.hyper), maximum(d.hyper)
+    ρ = [rand(rng, d.hyper) for _ in 1:d.nt]
+    params = stack(ρk -> rand(rng, GaussMarkovRandomField(ρk, d.graph)), ρ)
+    return (params = params, hyperparams = logit.((ρ .- lo) ./ (hi - lo)))
+end
+
 cprior = corr_image_prior(g2, tab)
-prior = (c = ntuple(_ -> cprior, NT), σimg = VLBIExponential(0.5))
+prior = (c = movie_prior(cprior, NT), σimg = VLBIExponential(0.5))
 metadata = (; logmean, ftot = 0.6)
 if SYNTH
     # One image plane per IF, scaled by (ν / ν̄)^α.

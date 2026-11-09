@@ -330,6 +330,21 @@ end
     return value
 end
 
+"""
+    gmrf_qv(I, κ²)
+
+The `qv` of `_igmrf_walk` for every cell, for an image or a stack along dimension 3;
+`κ²` broadcasts against `I`.
+"""
+function gmrf_qv(I::AbstractArray, κ²)
+    n1, n2 = size(I, 1), size(I, 2)
+    z1 = zeros(eltype(I), 1, size(I)[2:end]...)
+    z2 = zeros(eltype(I), n1, 1, size(I)[3:end]...)
+    neighbours = cat(selectdim(I, 1, 2:n1), z1; dims = 1) .+ cat(z1, selectdim(I, 1, 1:(n1 - 1)); dims = 1) .+
+        cat(selectdim(I, 2, 2:n2), z2; dims = 2) .+ cat(z2, selectdim(I, 2, 1:(n2 - 1)); dims = 2)
+    return (4 .+ κ²) .* I .- neighbours
+end
+
 # 1-neighbor: Σ qv · I  (TSV regularizer)
 _red1n(qv, Ic) = qv * Ic
 igmrf_1n(I::AbstractMatrix, κ², ::Any) = _igmrf_walk(I, κ², _red1n)
