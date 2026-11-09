@@ -26,7 +26,9 @@ The model:
     `data/array_eht2022.txt`.
 - The sky is a movie of `NT` frames of `NPIX × NPIX` pixels on a 150 μas field. Each frame
   has its own GMRF log-image (`corr_image_prior`) around a crescent whose position angle
-  rotates over the observation. The frames are normalized to 0.6 Jy. With `DATA=synthetic`
+  rotates over the observation. The frames' priors are one distribution over the
+  `NPIX × NPIX × NT` image stack (`FrameGMRFs`), so the parameter vector holds all images,
+  then the frames' correlation lengths, and the prior is computed for all frames at once. The frames are normalized to 0.6 Jy. With `DATA=synthetic`
   the image has one plane per IF, scaled by `(ν/ν̄)^α` with a spectral-index parameter `α`.
 - Each image plane is zero-padded to `NPAD × NPAD`, `NPAD` the smallest 7-smooth number of
   at least `PADFAC × NPIX`. Its visibilities on the `(NPAD/2 + 1) × NPAD` cells of the
@@ -159,8 +161,9 @@ densities agree with the CPU to 4e-16 or better, the gradients to 7e-15.
 
 The all-reduces are the sums of the log likelihood and the gradient with respect to the
 replicated parameters. The collective-permutes move single `NPIX × NPIX` frames between
-devices; they come from the `cat` of the per-frame GMRF fluctuations in `movie_image`, whose
-parameters are replicated.
+devices; they came from the `cat` of separately stored frames in `movie_image`. These
+counts and the timings above were measured with a prior that stored each frame's image and
+correlation length separately, before `FrameGMRFs`.
 
 **No speedup here.** As on `main`, 4 simulated CPU devices are slower than 1: each collective
 costs a few milliseconds on forced host devices, the devices share the same cores, and the
